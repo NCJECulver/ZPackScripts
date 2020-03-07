@@ -4,30 +4,33 @@
 #
 # https://www.autometer.de/unix4fun/z80pack/
 #
-# Z80Pack has preconfigured packages for both MP/M servers
-# and clients. While it's not difficult to set up clients
-# under Z80Pack, it still normally requires manual swapping
-# of some config files and careful management of script
-# files. This script will auto-download, install and configure
-# clients in such a way as to make all of that automatic, and
-# to enable running multiple clients concurrently.
+# Z80Pack has preconfigured packages for both MP/M servers and clients.  To emu-
+# late an MP/M network, Z80Pack uses TPC/IP ports to enable emulated CP/M cli-
+# ents to communicate with an emulated MP/M server. A server listens on up to 
+# four ports at once, and a client connects to one of the ports. All this is
+# specified in configuration files.
 
-# To use this script, set the variables below to match
-# your system, place a copy of this script in $zloc/cpmsim
-# and run it without parameters, e.g.
+# It's not difficult to set all this up under Z80Pack, but normally only one
+# server can run at a time, and the whole thing requires careful management 
+# of script and configuration files. 
+
+# This script, together with its companion server_install, auto-downloads, in-
+# stalls and configures servers & clients in such a way as to make everything
+# automatic, and to enable running multiple servers and clients concurrently.
+
+# To use this script, set the variables below to match your system, place a copy
+# of this script in $zloc/cpmsim and run it without parameters, e.g.
 
 # ~/z80pack-1.36/cpmsim > ./client_install
 
-# A client will be installed and a script created with the
-# name "cpm2-client#" where "#" is "1" if you have no clients
-# currently installed, or the first unused number if you
-# already do. To run a client, simply run its script, e.g.:
+# A CP/M 2 client will be installed and a script created with the name "cpm2-
+# client#" where "#" is "1" if you have no clients currently installed, or the
+# first unused number if you do. To run a client, simply run its script, e.g.:
 
 # ./cpm2-client1
 
-# Note that you must clients will try to connect to an MP/M
-# server, so you'll need to have a server installed and running 
-# first. See the companion server_install script.
+# Your client will try to connect to an MP/M server, so you'll need a server
+# installed and running first. See the companion server_install script.
 
 # Variables
   zver=1.36 # The latest version of Z80Pack
