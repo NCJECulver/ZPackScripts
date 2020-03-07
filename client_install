@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# This script is used in conjunction with Z80Pack
+#
+# https://www.autometer.de/unix4fun/z80pack/
+#
+# Z80Pack has preconfigured packages for both MP/M servers
+# and clients. While it's not difficult to set up clients
+# under Z80Pack, it still normally requires manual swapping
+# of some config files and careful management of script
+# files. This script will auto-download, install and configure
+# clients in such a way as to make all of that automatic, and
+# to enable running multiple clients concurrently.
+
+# To use this script, set the variables below to match
+# your system, place a copy of this script in $zloc/cpmsim
+# and run it without parameters, e.g.
+
+# ~/z80pack-1.36/cpmsim > ./client_install
+
+# A client will be installed and a script created with the
+# name "cpm2-client#" where "#" is "1" if you have no clients
+# currently installed, or the first unused number if you
+# already do. To run a client, simply run its script, e.g.:
+
+# ./cpm2-client1
+
+# Note that you must clients will try to connect to an MP/M
+# server, so you'll need to have a server installed and running 
+# first. See the companion server_install script.
+
+# Variables
+  zver=1.36 # The latest version of Z80Pack
+  zloc=~/cpm/z80pack-$zver # Z80Pack's home dir
+  confdir=conf # where Z80Pack keeps its config files (probably "conf")
+  conflib=$confdir/library
+
+# Create dir
+  cd $zloc/cpmsim/
+  mkdir -p $conflib
+
+# skip existing clients
+  clientnum=1
+  while [ -f cpm2-client$clientnum ]; do clientnum=$(( $clientnum + 1 )) ; done
+
+# Fetch and install
+  wget https://www.autometer.de/unix4fun/z80pack/ftp/cpm2-net-1.2.tgz
+
+  # --transform replaces the string 'net2' with 'clientx' in all extracted
+  # filenames. Unfortunately, 'client$clientnum' is interpreted literally,
+  # so the files first need to be extracted to 'clientx' then renamed.
+
+  tar --transform='flags=r;s|net2|clientx|' -xvf cpm2-net-1.2.tgz
+  mv disks/library/cpm2-clientx.dsk disks/library/cpm2-client$clientnum.dsk
+
+  rm cpm2-clientx # We will rebuild this later
+
+  
+# Build configuration files
+
+  # Create network configuration file
+  confile=$conflib/cpm2-client$clientnum.conf
+  listenport=$((4000 + clientnum*2 - ((clientnum-1) % 2)))
+
+cat > $confile <<EOL
+# Network client configuration for Client $clientnum
+#
+# Console       host                    TCP/IP port
+1               localhost               $listenport
+EOL
+
+
+
+
+
+
+
+
+# Build launch script
+  script=cpm2-client$clientnum
+
+cat > $script <<EOL
+#!/bin/bash
+#
+rm -f disks/drive[a].dsk
+ln disks/library/cpm2-client$clientnum.dsk disks/drivea.dsk
+
+
+#
+rm -f $confdir/*.conf
+ln $conflib/cpm2-client$clientnum.conf $confdir/net_client.conf
+#
+./cpmsim $*
+EOL
+
+chmod +x $script
+
+#cleanup
+  rm cpm2-net-1.2.tgz 

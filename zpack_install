@@ -1,0 +1,832 @@
+#!/bin/bash
+
+# VERSION: 2019.10.25
+# VERSION: 2019.12.16 Added dependencies check
+# VERSION: 2020-02-20 Updated libjpeg8-dev to libjpeg62-turbo-dev
+#                     Some distros don't have git, wget, sudo; added to dependencies check
+
+# DEPENDENCIES:
+# Building Z80Pack and its components requires the following. Run "sudo apt-get update"
+# then install components with "sudo apt-get install".
+#
+# sudo                # A minimal Debian config may not have sudo
+# wget                # some minimal distros don't include these
+# git                 # to fetch dev version 
+# build-essential     # includes dpkg-dev g++ gcc make libc6-dev (or libc-dev) 
+                      # g++ needed for frontpanel build
+# libjpeg62-turbo-dev # for jinclude.h (used to be libjpeg8-dev)
+# libx11-dev          # for X11/Xlib.h
+# mesa-common-dev     # GL/gl.h (OpenGL) for frontpile build
+# libglu1-mesa-dev    # GL/glu.h (OpenGL)
+# freeglut3-dev       # GL/glu.h (OpenGL)
+# libxmu-dev          # ld -lXmu fails
+# socat               # Used by imsaisim for its virtual modem
+
+# # VARIABLES: 
+  dependencies="sudo wget git build-essential libjpeg8-dev libx11-dev mesa-common-dev libglu1-mesa-dev freeglut3-dev libxmu-dev socat"
+
+  zver=dev            # Z80Pack version you wish to install; e.g., 1.36 or dev
+  zroot=$(pwd)        # where to put z80pack-x.yy/; default to current dir
+  case $zver in
+    dev)
+      zloc=$zroot/z80pack 
+      ;;
+    *)
+      zloc=$zroot/z80pack-$zver
+      ;;
+  esac
+  osenv=linux         # Your operating environment; one of linux, cygwin, osx, solaris or bsd 
+  sharedlib=/usr/lib  # a shared library directory on your system; libfrontpanel.so goes here
+
+# ERRORS:
+#
+# If you encounter either or both of these errors:
+#
+#   Cannot access auxout
+#   Compile the tools dude!
+#
+# Make sure you have ~/bin in the path and cpmsim.aux* properly chmodded:
+#
+#   PATH=$PATH:/home/yourhomedir/bin; export PATH
+#   chmod +777 /tmp/.z80pack/cpmsim.aux*
+#
+# Also make sure you add the path command to your ~/.bash_profile
+#
+# -------------------------- End of configuration area. -------------------------- 
+
+check_dependencies () {
+missing=""
+
+  echo " "
+  echo "---------------------------"
+  echo "Testing for dependencies..."
+  echo "---------------------------"
+  echo " "
+
+  for dependency in $dependencies ; do
+    echo $dependency
+    dpkg -S $dependency >/dev/null 2>/dev/null || missing=$missing$dependency" "
+  done
+
+  if [[ ! -z "$missing" ]]; then
+    echo "---------------------------------"
+    echo "ERROR: Some dependencies are missing. They must be installed before continuing."
+    echo "       They may be installed with the following command:"
+    echo " "
+    echo "       sudo apt-get install $missing"
+    echo " "
+    echo " **** Z80Pack installation is not complete. ****"
+    echo "---------------------------------"
+
+    exit 1
+  fi
+  echo " "
+  echo "All dependencies are satisfied! Continuing..."
+  echo " "
+}
+
+function zpack {
+  echo " ------------------------------ "
+  echo "   Installing Z80Pack           "
+  echo " ------------------------------ "
+
+# Obtain and unpack Z80Pack
+  mkdir -p $zroot
+  cd $zroot
+  case $zver in
+    dev)
+      git clone https://github.com/udo-munk/z80pack.git 
+      cd z80pack 
+      git checkout dev 
+      cd -
+      ;;
+    *)
+      wget https://www.autometer.de/unix4fun/z80pack/ftp/z80pack-$zver.tgz
+      tar xvf z80pack-$zver.tgz
+      rm z80pack-$zver.tgz
+      ;;
+  esac
+  }
+
+function buildit     {
+  echo " ------------------------------ "
+  echo "   Building $component          "
+  echo " ------------------------------ "
+  # build it
+  cd $zloc/$component/
+  [ -d srcsim/ ] && cd srcsim/       # frontpanel has no srcsim/
+  make -f Makefile.$osenv
+  make -f Makefile.$osenv clean
+
+  # Backup disk images
+  if [ -d ../disks ]
+   then
+    mkdir -p disks/backups
+    [[ -f disks/library/* ]] && cp -p disks/library/* disks/backups/
+  fi
+}
+
+function cromemcosim { 
+  component=cromemcosim ; buildit 
+  }
+  
+function imsaisim    { 
+  component=imsaisim    ; buildit 
+  rm $zloc/webfrontend/civetweb/libcivetweb.a # no longer needed
+  }
+  
+function cpmsim      { 
+  component=cpmsim      ; buildit
+
+  # Compile support programs. 
+  # Make sure ~/bin is in your search path: export PATH=PATH:~/bin
+  mkdir -p ~/bin
+  cd $zloc/cpmsim/srctools
+  make
+  make install
+  make clean
+
+  # Install additional components
+  cd ..
+  wget http://www.viara.eu/download/td130-1.01.tar.gz
+  tar -xvf td130-1.01.tar.gz
+  rm td130-1.01.tar.gz
+  rm td130m
+  rm td130s
+  rm td130
+  mkdir -p conf/library/  
+
+  cat > conf/library/td130m.conf <<EOL
+# Network client configuration for TurboDOS
+#
+1               0               4040
+2               0               4042
+3               0               4044
+4               0               4046
+EOL
+
+  cat > conf/library/td130s.conf <<EOL
+# Network server configuration for TurboDOS
+#
+1        127.0.0.1              4040 
+EOL
+
+  cat > td130m <<EOL
+#!/bin/sh
+
+rm -f disks/drive[ai].dsk
+ln disks/library/td130-1.dsk disks/drivea.dsk
+ln disks/library/td130-2.dsk disks/drivei.dsk
+rm conf/*.conf
+ln conf/library/td130m.conf conf/net_server.conf
+
+./cpmsim
+EOL
+chmod +x td130m
+
+  cat > td130s <<EOL
+#!/bin/sh
+
+rm -f disks/drive[ai].dsk
+ln disks/library/td130-1.dsk disks/drivea.dsk
+ln disks/library/td130-2.dsk disks/drivei.dsk
+rm conf/*.conf
+ln conf/library/td130s.conf conf/net_client.conf
+
+./cpmsim
+EOL
+chmod +x td130s
+}
+
+function frontpanel { 
+
+# sudo apt-get install g++ libjpeg8-dev libglu1-mesa-dev libxmu-dev   
+  component=frontpanel ; buildit
+  
+  echo " ------------------------------ "
+  echo "   Enter your admin password:   "
+  echo " ------------------------------ "
+  sudo cp libfrontpanel.so $sharedlib
+}
+
+function altairsim { component=altairsim ; buildit
+  
+  # Install additional
+  cd $zloc/altairsim/
+  for mits in dbl.hex dbl.asm dbl.prn; do
+    wget https://www.autometer.de/unix4fun/z80pack/ftp/altair/$mits
+   done
+  for mits in mits-cpm22.tgz mits-cpm14.tgz mits-basic40.tgz mits-basic50.tgz mits-cpm-tools.tgz mits-cpm-ws30.tgz mits-dos.tgz
+   do
+    wget https://www.autometer.de/unix4fun/z80pack/ftp/altair/$mits
+    tar -xvf $mits
+    rm $mits
+   done
+   
+  # Make scripts
+  cat > mits-cpm22 <<EOL
+#!/bin/sh
+#
+rm -f disks/drive[abcd].dsk
+ln disks/library/mits-cpm22-56k.dsk disks/drivea.dsk
+ln disks/library/mits-cpm-tools.dsk disks/drivec.dsk
+#
+./altairsim -x dbl.hex $*
+EOL
+
+  chmod +x mits-cpm22
+
+  cat > mits-cpm14 <<EOL
+#!/bin/sh
+#
+rm -f disks/drive[abcd].dsk
+ln disks/library/mits-cpm14-24k.dsk disks/drivea.dsk
+ln disks/library/mits-cpm-tools.dsk disks/drivec.dsk
+#
+./altairsim -x dbl.hex $*
+EOL
+
+  chmod +x mits-cpm14
+
+
+  cat > mits-dos <<EOL
+#!/bin/sh
+#
+rm -f disks/drive[a].dsk
+ln disks/library/mits-dos.dsk disks/drivea.dsk
+#
+./altairsim -x dbl.hex $*
+EOL
+
+  chmod +x mits-dos
+
+}
+
+function webfrontend {
+  echo " ------------------------------ "
+  echo "   Building webfrontend         "
+  echo " ------------------------------ "
+  cd $zloc/webfrontend/civetweb/
+  make -f Makefile
+  cp libcivetweb.a $zloc      # required by imsaisim
+  make -f Makefile clean      # build so preserve it
+  mv $zloc/libcivetweb.a .
+}
+
+# -----------------------------------------
+# Component and Software Installation Menus
+# -----------------------------------------
+
+function inst () { 
+
+  # If for some reason the user decides to install packs w/o having
+  # installed Z80Pack or into a location where Z80Pack hasn't been 
+  # installed, make sure the dirs exist.
+
+  mkdir -p $zloc/cpmsim/disks/library 
+  mkdir -p $zloc/cpmsim/disks/backups
+  cd $zloc/cpmsim
+
+  wget https://www.autometer.de/unix4fun/z80pack/ftp/$1 && tar -xvf $1 && rm $1 
+
+  cp -u -r disks/library/* disks/backups/
+
+  echo " "
+  echo "+-------------------------------+"
+  echo " Installing $1"
+  echo " "
+  echo " Command(s) available: "
+  
+  # Update script files, replacing ".cpm" with ".dsk"
+  
+  for scr in $2 $3 $4 $5 $6
+    do
+      file_contents=$(<$scr)
+      echo "${file_contents//.cpm/.dsk}" > $scr
+      echo "   $scr"
+    done
+  echo "+-------------------------------+"
+  echo " "
+
+  cd -
+}
+
+function menu1 {
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|       Disk images with Digital Research OS sources       |"
+    echo "|                                                          |"
+    echo "| A) CP/M 2.0 source disk images with boot dsk bld scripts |"
+    echo "| B) CP/M 2.2 source disk images with boot dsk bld scripts |"
+    echo "| C) CP/M 2.2 src dsk, patches; tools are on A) or B) above|"
+    echo "| D) CP/M 3 source disk images with build scripts          |"
+    echo "| E) MP/M 2 source disk images with build scripts          |"
+    echo "|                                                          |"
+    echo "| Z) All the above                                         |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose a component to install (Q to return): " a
+
+    case $a in
+      A|a) inst cpm20src.tgz     cpm20src                         ;;
+      B|b) inst cpm22src.tgz     cpm22src                         ;;
+      C|c) inst cpm22src-pat.tgz cpm22srcp                        ;;
+      D|d) inst cpm3src.tgz      cpm3src-p1 cpm3src-p2 cpm3src-p3 ;;
+      E|e) inst mpmsrc.tgz       mpmsrc                           ;;
+      Z|z) inst cpm20src.tgz     cpm20src
+           inst cpm22src.tgz     cpm22src
+           inst cpm22src-pat.tgz cpm22srcp
+           inst cpm3src.tgz      cpm3src-p1 cpm3src-p2 cpm3src-p3
+           inst mpmsrc.tgz       mpmsrc                           ;;
+      Q|q) break ;;
+      *) ;;
+    esac
+  done
+}
+    
+function menu2 {
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|        CP/NET client and server boot disk images         |"
+    echo "|                                                          |"
+    echo "| A) Preconf'd CP/NET 1.0 MP/M server, customized sources  |"
+    echo "| B) Preconf'd CP/NET 1.0 CP/M 2.2 client, cust sources    |"
+    echo "| C) Preconf'd CP/NET 1.1 MP/M server, customized sources  |"
+    echo "| D) Preconf'd CP/NET 1.1 CP/M 2.2 client, cust sources    |"
+    echo "| E) Preconf'd CP/NET 1.2 MP/M server, customized sources  |"
+    echo "| F) Preconf'd CP/NET 1.2 CP/M 2.2 client, cust sources    |"
+    echo "|                                                          |"
+    echo "| Z) All the above                                         |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose a component to install (Q to return): " a
+
+    case $a in
+      A|a) inst mpm-net-1.0.tgz  mpm-net0  ;;
+      B|b) inst cpm2-net-1.0.tgz cpm2-net0 ;;
+      C|c) inst mpm-net-1.1.tgz  mpm-net1  ;;
+      D|d) inst cpm2-net-1.1.tgz cpm2-net1 ;;
+      E|e) inst mpm-net-1.2.tgz  mpm-net2  ;;
+      F|f) inst cpm2-net-1.2.tgz cpm2-net2 ;;
+      Z|z) inst mpm-net-1.0.tgz  mpm-net0
+           inst cpm2-net-1.0.tgz cpm2-net0
+           inst mpm-net-1.1.tgz  mpm-net1
+           inst cpm2-net-1.1.tgz cpm2-net1
+           inst mpm-net-1.2.tgz  mpm-net2
+           inst cpm2-net-1.2.tgz cpm2-net2 ;;
+      Q|q) break ;;
+      *) ;;
+    esac
+  done
+}
+
+function menu3 {
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|   Bootable disk images with Older CP/M bootable disks    |"
+    echo "|                                                          |"
+    echo "| A) 1975 CP/M version bootable image; sources see below   |"
+    echo "| B) CP/M 1.3 bootable image, incl boot ldr, BIOS sources  |"
+    echo "| C) CP/M 1.4 bootable image, incl boot ldr, BIOS sources  |"
+    echo "|                                                          |"
+    echo "| Z) All the above                                         |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose a component to install (Q to return): " a
+
+    case $a in
+      A|a) inst cpm1975.tgz cpm1975 ;;
+      B|b) inst cpm13.tgz   cpm13   ;;
+      C|c) inst cpm14.tgz   cpm14   ;;
+      Z|z) inst cpm1975.tgz cpm1975 
+           inst cpm13.tgz   cpm13
+           inst cpm14.tgz   cpm14   ;;
+      Q|q) break ;;
+      *) ;;
+    esac
+  done
+}
+    
+function menu4 {
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|        Variant CP/M configuration bootable images        |"
+    echo "|                                                          |"
+    echo "| A) 63K CP/M 2.2; check vectors for i:, j: HD protection  |"
+    echo "| B) CP/M 3 8080 ver; chk vectrs for i:, j: HD corrupt prot|"
+    echo "|                                                          |"
+    echo "| Z) All the above                                         |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose a component to install (Q to return): " a
+
+    case $a in
+      A|a) inst cpm63k.tgz              ;;
+      B|b) inst cpm3-8080.tgz cpm3-8080 ;;
+      Z|z) inst cpm63k.tgz 
+           inst cpm3-8080.tgz cpm3-8080 ;;
+      Q|q) break ;;
+      *) ;;
+    esac
+  done
+}
+    
+function menu5 {
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|          Disk images with UCSD p-System for Z80          |"
+    echo "|                                                          |"
+    echo "| A) CP/M 2.2, boot record bld srcs p-Sys I.4, I.5, II.0.  |"
+    echo "| B) p-Sys I.4 Z80 boot sys dsk, VT-100, ANSI terminals    |"
+    echo "| C) p-Sys I.5 Z80 boot sys dsks, VT-100, ANSI terminals   |"
+    echo "| D) p-Sys II.0 Z80 boot sys dsks, VT-100, ANSI terminals  |"
+    echo "| E) p-Sys IV.0 Z80 boot sys dsks, VT-100, ANSI terminals  |"
+    echo "| F) p-Sys I.5 for Z80, 8in images                         |"
+    echo "| G) Modded p-Sys I.5 p-code interpreter sources           |"
+    echo "| H) p-Sys II.0 for Z80, 8in imgs, repaired bitsavers imgs |"
+    echo "| I) Modded p-Sys II.0 p-code interpreter sources          |"
+    echo "| J) p-Sys IV.0 p-code interpreter objects                 |"
+    echo "|                                                          |"
+    echo "| Z) All the above                                         |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose a component to install (Q to return): " a
+
+    case $a in
+      A|a) inst ucsd-booter.tgz    ucsd-booter ;;
+      B|b) inst ucsd-i4.tgz            ucsd-i4 ;;
+      C|c) inst ucsd-i5.tgz            ucsd-i5 ;;
+      D|d) inst ucsd-ii.tgz            ucsd-ii ;;
+      E|e) inst ucsd-iv.tgz            ucsd-iv ;;
+      F|f) inst ucsd-i5-disks.tgz              ;;
+      G|g) inst ucsd-i5-interp.tgz             ;;
+      H|h) inst ucsd-ii-disks.tgz              ;; 
+      I|i) inst ucsd-ii-interp.tgz             ;;
+      J|j) inst ucsd-iv-interp.tgz             ;;
+      Z|z) inst ucsd-booter.tgz    ucsd-booter
+           inst ucsd-i4.tgz            ucsd-i4
+           inst ucsd-i5.tgz            ucsd-i5
+           inst ucsd-ii.tgz            ucsd-ii
+           inst ucsd-iv.tgz            ucsd-iv
+           inst ucsd-i5-disks.tgz 
+           inst ucsd-i5-interp.tgz 
+           inst ucsd-ii-disks.tgz 
+           inst ucsd-ii-interp.tgz  
+           inst ucsd-iv-interp.tgz             ;;
+      Q|q) break ;;
+      *) ;;
+    esac
+  done
+}
+ 
+function menu6 {
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|             Other 8080/Z80 operating systems             |"
+    echo "|                                                          |"
+    echo "| A) CP/M 2.2 ZCPR1, all sources and documentation         |"
+    echo "| B) CP/M 2.2 ZSDOS/ZCPR1, all sources and docs            |"
+    echo "| C) Preconf'd NZ-COM ZSDOS/ZCPR3.4 CP/M 2.2, incl docs    |"
+    echo "| D) CP/M 2.2 Z80CCP, incl source                          |"
+    echo "| E) QP/M prebuilt bootable image                          |"
+    echo "| F) DOS+ prebuilt bootable image                          |"
+    echo "| G) ConIX HD img preinstalled for CP/M 2.2                |"
+    echo "| H) MicroShell, UNIX-like features for CP/M               |"
+    echo "| I) Microtools, other UNIX-like utils for CP/M            |"
+    echo "| J) FUZIX preinstalled; work in progress                  |"
+    echo "|                                                          |"
+    echo "| Z) All the above                                         |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose a component to install (Q to return): " a
+
+    case $a in
+      A|a) inst zcpr1.tgz      zcpr1   ;;
+      B|b) inst zsdos.tgz      zsdos   ;;
+      C|c) inst nzcom.tgz      nzcom   ;;
+      D|d) inst z80ccp.tgz     z80ccp  ;;
+      E|e) inst qpm.tgz        qpm     ;;
+      F|f) inst dosplus.tgz    dosplus ;;
+      G|g) inst conix.tgz              ;;
+      H|h) inst microshell.tgz         ;;
+      I|i) inst microtools.tgz         ;;
+      J|j) inst fuzix.tgz      fuzix   ;;
+      Z|z) inst zcpr1.tgz      zcpr1
+           inst zsdos.tgz      zsdos
+           inst nzcom.tgz      nzcom
+           inst z80ccp.tgz     z80ccp
+           inst qpm.tgz        qpm
+           inst dosplus.tgz    dosplus
+           inst conix.tgz 
+           inst microshell.tgz 
+           inst microtools.tgz 
+           inst fuzix.tgz      fuzix   ;;
+      Q|q) break ;;
+      *) ;;
+    esac
+  done
+}
+    
+function menu7 {
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|    Disk images with CP/M application software, Menu 1    |"
+    echo "|                                                          |"
+    echo "| A) Word-Master 1.07 orig files, asm patch srcs, var terms|"
+    echo "| B) Vedit 1.34, conf'd binary for ANSI term, cursor keymap|"
+    echo "| C) WordStar 3.3, conf'd for VT-100 terminal              |"
+    echo "| D) WordStar 4.0 HD img, conf'd for VT-100 terminal       |"
+    echo "| E) ZDE 1.6, conf'd binary for ANSI term, cursor keymap   |"
+    echo "| F) Complete ISIS tools, submit scrp to compile PL/M progs|"
+    echo "| G) Microsoft Fortran-80 compiler version 3.44            |"
+    echo "| H) PaloAlto Tinybasic src and exec w/SAVE & LOAD for CP/M|"
+    echo "| I) Eubanks BASIC-E compilr srcs, bld scrp, BASIC examples|"
+    echo "| J) XYBASIC sources HD img, bld scrp, executables         |"
+    echo "| K) LLL Basic interpreter, Dr. Dobbs 1977, srcs, exes     |"
+    echo "| L) MS BASIC Rev4.51, BASIC-80 Rev5.21, BASIC-85 Rev5.29  |"
+    echo "| M) Microsoft Basic compiler 5.3                          |"
+    echo "| N) DRI CBASIC 2, CB80 2.0 Basic compiler, GSX-80 graphics|"
+    echo "| O) DRI GSX-80 v1.0 Graphics Extension                    |"
+    echo "| P) DRI GSX-80 v1.1 Graphics Extension                    |"
+    echo "| R) GSX-80 example programs in various programming langs  |"
+    echo "| S) GSX-80 attached to mbasic interp; example BASIC progs |"
+    echo "| T) DRI's DR Graph application, a chart tool using GSX-80 |"
+    echo "| U) DRI's DR Draw application, a drawing tool using GSX-80|"
+    echo "| V) ALGOL-M compiler for CP/M                             |"
+    echo "|                                                          |"
+    echo "| Z) All the above                                         |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose a component to install (Q to return): " a
+
+    case $a in
+      A|a) inst wm.tgz                 ;;
+      B|b) inst vedit.tgz              ;;
+      C|c) inst ws33.tgz               ;;
+      D|d) inst ws40.tgz               ;;
+      E|e) inst zde.tgz                ;;
+      F|f) inst isis.tgz      isis     ;;
+      G|g) inst f80-344.tgz            ;;
+      H|h) inst tinybasic.tgz          ;;
+      I|i) inst basice.tgz             ;;
+      J|j) inst xybasic.tgz            ;;
+      K|k) inst lllbasic.tgz  lllbasic ;;
+      L|l) inst mbasic.tgz             ;;
+      M|m) inst bascom.tgz             ;;
+      N|n) inst cb80.tgz               ;;
+      O|o) inst gsx80-1.0.tgz          ;;
+      P|p) inst gsx80-1.1.tgz          ;;
+      R|r) inst gsxprg.tgz             ;;
+      S|s) inst gsxbasic.tgz           ;;
+      T|t) inst drgraph.tgz            ;;
+      U|u) inst drdraw.tgz             ;;
+      V|v) inst algol-m.tgz   algol    ;;
+      Z|z) inst wm.tgz 
+           inst vedit.tgz  
+           inst ws33.tgz  
+           inst ws40.tgz  
+           inst zde.tgz  
+           inst isis.tgz isis 
+           inst f80-344.tgz  
+           inst tinybasic.tgz  
+           inst basice.tgz  
+           inst xybasic.tgz  
+           inst lllbasic.tgz  lllbasic 
+           inst mbasic.tgz 
+           inst bascom.tgz  
+           inst cb80.tgz  
+           inst gsx80-1.0.tgz  
+           inst gsx80-1.1.tgz 
+           inst gsxprg.tgz  
+           inst gsxbasic.tgz  
+           inst drgraph.tgz  
+           inst drdraw.tgz  
+           inst algol-m.tgz  algol     ;;
+      Q|q) break ;;
+      *) ;;
+    esac
+  done
+}
+
+function menu8 {
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|    Disk images with CP/M application software, Menu 2    |"
+    echo "|                                                          |"
+    echo "| A) Starkweather 8080 Pilot interp, Dr. Dobbs 77, srcs    |"
+    echo "| B) Comal-80 Rev. 2.10 for CP/M, VT-100/ANSI terminals    |"
+    echo "| C) Z80MR macro assembler                                 |"
+    echo "| D) figFORTH 1.1, 1.3 for 8080, editor, 8080 assembler    |"
+    echo "| E) CP/M FORTH implementations using filesys as block dev |"
+    echo "| F) Turbo Pascal 3.01A; ANSI terminal                     |"
+    echo "| G) Q/C C compiler version 3.1a for Z80                   |"
+    echo "| H) C/80 C compiler version 3.1 for 8080, HD img          |"
+    echo "| I) Z80 Hitech-C V3.09, conf'd to run from J:             |"
+    echo "| J) Kermit 4.11 build for cpmsim TCP/IP UART              |"
+    echo "| K) CP/M 3 sys extensions, e.g. multiline command history |"
+    echo "| L) CP/M help system 2.0, conf'd to use drive J:          |"
+    echo "| M) Colossal Cave adventure, version A02, 350 points      |"
+    echo "| N) A02 src for MSFortran-80/CPM, Cromemco Fortran IV/CDOS|"
+    echo "| O) Colossal Cave adventure, version B00, 550 points. Z80 |"
+    echo "| P) Colossal Cave adventure, version B01, 550 points. 8080|"
+    echo "| R) Colossal Cave adventure, version B03, 580 points      |"
+    echo "| S) Rogue 1.7 and Wanderer 2.2; QTERM patch VT-100/ANSI   |"
+    echo "| T) Nemesis and Dungeon Master rpg; ANSI terminals        |"
+    echo "| U) Infocom Planetfall, Hitchhikers Guide; ANSI terminals |"
+    echo "| V) CP/M Chess programs                                   |"
+    echo "|                                                          |"
+    echo "| Z) All the above                                         |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose a component to install (Q to return): " a
+
+    case $a in
+      A|a) inst pilot.tgz       pilot ;;
+      B|b) inst comal.tgz       comal ;;
+      C|c) inst z80mr.tgz             ;;
+      D|d) inst fig80.tgz       fig80 ;;
+      E|e) inst forth.tgz             ;;
+      F|f) inst tp301a.tgz      tp    ;;
+      G|g) inst qc31a.tgz             ;;
+      H|h) inst c80.tgz         c80   ;;
+      I|i) inst hd-htc.tgz            ;;
+      J|j) inst kermit.tgz            ;;
+      K|k) inst cpm3tools.tgz         ;;
+      L|l) inst help.tgz              ;;
+      M|m) inst adv-a02.tgz           ;;
+      N|n) inst adv-a02-src.tgz       ;;
+      O|o) inst adv-b00.tgz           ;;
+      P|p) inst adv-b01.tgz           ;;
+      R|r) inst adv-b03.tgz           ;;
+      S|s) inst rogue.tgz             ;;
+      T|t) inst nemesis.tgz           ;;
+      U|u) inst infocom.tgz           ;;
+      V|v) inst chess.tgz             ;;
+      Z|z) inst pilot.tgz       pilot
+           inst comal.tgz       comal
+           inst z80mr.tgz     
+           inst fig80.tgz       fig80
+           inst forth.tgz     
+           inst tp301a.tgz      tp
+           inst qc31a.tgz       
+           inst c80.tgz         c80
+           inst hd-htc.tgz    
+           inst kermit.tgz    
+           inst cpm3tools.tgz 
+           inst help.tgz      
+           inst adv-a02.tgz   
+           inst adv-a02-src.tgz 
+           inst adv-b00.tgz   
+           inst adv-b01.tgz   
+           inst adv-b03.tgz   
+           inst rogue.tgz    
+           inst nemesis.tgz   
+           inst infocom.tgz   
+           inst chess.tgz             ;;
+      Q|q) break              ;;
+      *)                      ;;
+    esac
+  done
+}
+
+function menu9 {
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|   Disk images with UCSD p-System application software    |"
+    echo "|                                                          |"
+    echo "| A) Colossal Cave, 500 pts, srcs. Tested with II.0.       |"
+    echo "| B) Startrek. Too large for I.5, II.0, tested with IV.0.  |"
+    echo "| C) Blackjack, Othello, Chase. Tested with II.0.          |"
+    echo "| D) Bowles Database Homework Proj for II.0. Not completed.|"
+    echo "|                                                          |"
+    echo "| Z) All the above                                         |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose a component to install (Q to return): " a
+
+    case $a in
+      A|a) inst ucsd-adventure.tgz ;;
+      B|b) inst ucsd-startrek.tgz ;;
+      C|c) inst ucsd-games.tgz ;;
+      D|d) inst ucsd-kbdb.tgz ;;
+      Z|z) inst ucsd-adventure.tgz 
+           inst ucsd-startrek.tgz 
+           inst ucsd-games.tgz 
+           inst ucsd-kbdb.tgz ;;
+      Q|q) break              ;;
+      *)                      ;;
+    esac
+  done
+}
+
+function otherstuff {
+#  cd $zloc/cpmsim
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|                        CATEGORIES                        |"
+    echo "| A) Disk images with Digital Research OS sources          |"
+    echo "| B) CP/NET client and server boot disk images             |"
+    echo "| C) Bootable disk images with Older CP/M bootable disks   |"
+    echo "| D) Variant CP/M configuration bootable images            |"
+    echo "| E) Disk images with UCSD p-System for Z80                |"
+    echo "| F) Other 8080/Z80 operating systems                      |"
+    echo "| G) Disk images with CP/M application software, Menu 1    |"
+    echo "| H) Disk images with CP/M application software, Menu 2    |"
+    echo "| I) Disk images with UCSD p-System application software   |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose a component category (Q to exit): " a
+
+    case $a in
+      A|a) menu1 ;;
+      B|b) menu2 ;;
+      C|c) menu3 ;;
+      D|d) menu4 ;;
+      E|e) menu5 ;;
+      F|f) menu6 ;;
+      G|g) menu7 ;;
+      H|h) menu8 ;;
+      I|i) menu9 ;;
+      Q|q) break ;;
+      *) ;;
+    esac
+  done
+}
+
+function params {
+  # default values are set at the top of this script; you may specify
+  # a different version from the command line, e.g.: zpack-install 1.34
+  case $1 in
+    dev)
+        zver=dev
+        zloc=$zroot/z80pack
+        ;;
+    1.8|1.9)
+        zver=$1
+        zloc=$zroot/z80pack-$zver
+        ;;
+
+    # The following could be combined into a single case statement; this
+    # is just more legible.
+
+    1.10|1.11|1.12|1.13|1.14|1.15|1.16|1.17|1.18|1.19)
+        zver=$1
+        zloc=$zroot/z80pack-$zver
+        ;;
+    1.20|1.21|1.22|1.23|1.24|1.25|1.26|1.27|1.28|1.29)
+        zver=$1
+        zloc=$zroot/z80pack-$zver
+        ;;
+    1.30|1.31|1.32|1.33|1.34|1.35|1.36|1.37)
+        zver=$1
+        zloc=$zroot/z80pack-$zver
+        ;;
+    *)
+        echo "Unrecognized version. Using default $zver."
+  esac
+}
+
+# --- MAIN ---
+
+function mainmenu {
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|                                                          |"
+    echo "| Ready to install Z80Pack ver. $zver                       "
+    echo "| to directory: $zloc                                       "
+    echo "|                                                          |"
+    echo "+----------------------------------------------------------+"
+    echo "|                   Z80Pack Installation                   |"
+    echo "|                                                          |"
+    echo "| A) Install Z80Pack base system (may take a while).       |"
+    echo "| B) Install additional software and components.           |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose base system or components (Q to return): " a
+
+    case $a in
+      A|a) 
+           zpack
+           cpmsim
+           frontpanel
+           altairsim
+           cromemcosim
+           [ -d $zloc/webfrontend/ ] && webfrontend # webfrontend is not in 1.36 or earlier
+           imsaisim
+          ;;
+      B|b) otherstuff ;;
+      Q|q) break      ;;
+      *)              ;;
+    esac
+  done
+}
+
+params $*             # Read in command line parameters
+check_dependencies    # Make sure all build dependencies are satisfied
+mainmenu              # And go!
+
+echo " ------------------------------ "
+echo " Z80Pack Installation Complete  "
+echo " ------------------------------ "
+
+exit 0

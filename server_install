@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# This script is used in conjunction with Z80Pack
+#
+# https://www.autometer.de/unix4fun/z80pack/
+#
+# Z80Pack has preconfigured packages for both MP/M servers
+# and clients. While it's not difficult to set up servers
+# under Z80Pack, it still normally requires manual swapping
+# of some config files and careful management of script
+# files. This script will auto-download, install and configure
+# servers in such a way as to make all of that automatic and
+# to enable running multiple servers concurrently.
+
+# To use this script, set the variables below to match
+# your system, place a copy of this script in $zloc/cpmsim
+# and run it without parameters, e.g.
+
+# ~/z80pack-1.36/cpmsim > ./server_install
+
+# A server will be installed and a script created with the
+# name "mpm-server#" where "#" is "1" if you have no servers
+# currently installed, or the first unused number if you
+# already do. To run a server, simply run its script, e.g.:
+
+# ./mpm-server1
+
+# Note that you must clients will try to connect to an MP/M
+# server, so you'll need to have a server installed and running 
+# first. See the companion server_install script.
+
+# Variables
+  zver=1.36 # The latest version of Z80Pack
+  #basedir=~/cpm/z80pack/cpmsim
+  confdir=conf
+  conflib=$confdir/library
+
+# Create dir
+# cd $basedir
+  mkdir -p $conflib
+
+# skip existing servers
+  servernum=1
+  while [ -f mpm-server$servernum ];  do servernum=$(( $servernum + 1 )) ; done
+  
+# Fetch and install; rename extracted files
+  wget https://www.autometer.de/unix4fun/z80pack/ftp/mpm-net-1.2.tgz
+
+  # --transform replaces the string 'net2' with 'serverx' in all extracted
+  # filenames. Unfortunately, 'server$servernum' is interpreted literally,
+  # so the files first need to be extracted to 'serverx' then renamed.
+
+  tar --transform='flags=r;s|net2|serverx|' -xvf mpm-net-1.2.tgz
+  mv disks/library/mpm-serverx-1.dsk disks/library/mpm-server$servernum-1.dsk
+  mv disks/library/mpm-serverx-2.dsk disks/library/mpm-server$servernum-2.dsk
+  rm mpm-serverx # We will rebuild this later
+  
+# Build configuration files
+
+  # Create network configuration file
+  confile=$conflib/mpm-server$servernum.conf
+  baseport=$(( 4000 + (servernum-1)*4))
+
+cat > $confile <<EOL
+# Network server configuration for MP/M Server $servernum
+#
+# console:      # of the console port, 1-4
+# telnet flag:  1 = telnet option negotiation on, 0 = off
+# TCP/IP port:  every console needs a different port; every server a unique range
+#
+# Console       telnet flag     TCP/IP port
+1               1               $((baseport+0))
+2               1               $((baseport+1))
+3               0               $((baseport+2))
+4               0               $((baseport+3))
+EOL
+
+# Build launch script
+  script=mpm-server$servernum
+
+cat > $script <<EOL
+#!/bin/bash
+#
+rm -f disks/drive[ab].dsk
+ln disks/library/mpm-server$servernum-1.dsk disks/drivea.dsk
+ln disks/library/mpm-server$servernum-2.dsk disks/driveb.dsk
+
+#
+rm -f $confdir/*.conf
+ln $conflib/mpm-server$servernum.conf $confdir/net_server.conf
+#
+./cpmsim $*
+EOL
+
+chmod +x $script
+
+#cleanup
+  rm mpm-net-1.2.tgz 
