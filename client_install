@@ -39,7 +39,7 @@
   conflib=$confdir/library
 
 # Create dir
-  cd $zloc/cpmsim/
+  [ -d $zloc/cpmsim/ ] && cd $zloc/cpmsim/
   mkdir -p $conflib
 
 # skip existing clients
