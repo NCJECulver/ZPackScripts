@@ -40,12 +40,14 @@ configuration file in conf/library.
 Once you have at least one server and client installed, start the network as
 follows:
 
-  Command | Description
-  ---------- | ----------
-  ``./mpm-server1`` | Start the server
-  ``MPMLDR`` | Load MP/M
-  ``./cpm2-client1`` | Star the client
-  ``CPNETLDR`` | Load CP/Net
-  ``NETWORK C:=B:`` | Map a drive
-  ``LOCAL C:`` | Unmap a drive
-  ``CPNETSTS`` | Check network status
+* Start the server
+  * `./mpm-server1`
+  * `MPMLDR`
+* Start the client
+  * `./cpm2-client1`
+  * `CPNETLDR`
+* Map / unmap drives
+  * `NETWORK C:=B:`
+  * `LOCAL C:`
++ Check network status
+  * `CPNETSTS`
