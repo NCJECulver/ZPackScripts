@@ -297,12 +297,20 @@ function inst () {
   echo " "
   echo " Command(s) available: "
   
-  # Update script files, replacing ".cpm" with ".dsk"
+  # Update script files:
+  #  - replace sh with bash
+  #  - replace ".cpm" with ".dsk"
+  #  - add final three lines to accomodate zpack_os
   
   for scr in $2 $3 $4 $5 $6
     do
-      file_contents=$(<$scr)
-      echo "${file_contents//.cpm/.dsk}" > $scr
+      sed -i 's/\.cpm/\.dsk/g' $scr
+      sed -i 's/bin\/sh/bin\/bash/g' $scr
+      sed -i 's/\.\/format/mkdskimg/g' $scr
+      simcmd=$(grep cpmsim $scr)
+      sed -i "s|$simcmd|simcmd='$simcmd'|g" $scr
+      echo "[ -f ./zpack_os] && . ./zpack_os" >> $scr
+      echo "$simcmd" >> $scr
       echo "   $scr"
     done
   echo "+-------------------------------+"
