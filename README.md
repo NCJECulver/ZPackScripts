@@ -2,7 +2,7 @@
 Various scripts for use with the [Z80Pack simulator](https://github.com/udo-munk/z80pack).
 
 ## Z80Pack_Install
-A script to automate the installation of Z80Pack and the many additional OSes available from the Z80Pack website.
+A script to automate the installation of Z80Pack and the many additional OSes available from the [Z80Pack website](https://www.autometer.de/unix4fun/z80pack/).
 
 ## client_install
 A script to automate setting up an emulated MP/M client system under Z80Pack.
@@ -15,12 +15,13 @@ Adds enhancements to the basic Z80Pack OS launch scripts.
 
 # MP/M and CP/Net Networking
 
-MP/M is a multi-user version of CP/M, while CP/Net is Digital Research's
-networking technology. Z80Pack uses TCP ports to facilitate network
-connections of CP/M-CP/Net clients to MP/M servers. 
+CP/Net is Digital Research's networking technology; MP/M is Multiuser 
+CP/M, which is capable of acting as a server in a CP/Net network. Z80Pack uses 
+TCP ports to facilitate connections between vietualized CP/M clients and
+an MP/M server.
 
-_client_install_ and _server_install_ scripts automate the setup and
-port configuration of clients and servers under Z80Pack. Running the scripts
+_client_install_ and _server_install_ scripts automate setup and port
+configuration of clients and servers under Z80Pack. Running the scripts
 repeatedly will install additional clients and servers, which are by default
 configured as follows:
 
