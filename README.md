@@ -24,10 +24,12 @@ port configuration of clients and servers under Z80Pack. Running the scripts
 repeatedly will install additional clients and servers, which are by default
 configured as follows:
 
-cpm2-client1     mpm-server1 port 4002
-cpm2-client2     mpm-server1 port 4003
-cpm2-client3     mpm-server2 port 4006
-cpm2-client4     mpm-server2 port 4007
+  Client |   Server  | Port
+------------ | ------------ | ----
+``cpm2-client1`` | ``mpm-server1`` | ``4002``
+``cpm2-client2`` | ``mpm-server1`` | ``4003``
+``cpm2-client3`` | ``mpm-server2`` | ``4006``
+``cpm2-client4`` | ``mpm-server2`` | ``4007``
 
 and so forth.
 
@@ -37,10 +39,12 @@ configuration file in conf/library.
 Once you have at least one server and client installed, start the network as
 follows:
 
-Start the server:      ./mpm-server1
-Load MP/M:             MPMLDR
-Star the client:       ./cpm2-client1
-Load CP/Net:           CPNETLDR
-Map a drive:           NETWORK C:=B:
-Unmap a drive:         LOCAL C:
-Check network status   CPNETSTS
+  Command | Description
+  ---------- | ----------
+  ``./mpm-server1`` | Start the server
+  ``MPMLDR`` | Load MP/M
+  ``./cpm2-client1`` | Star the client
+  ``CPNETLDR`` | Load CP/Net
+  ``NETWORK C:=B:`` | Map a drive
+  ``LOCAL C:`` | Unmap a drive
+  ``CPNETSTS`` | Check network status
