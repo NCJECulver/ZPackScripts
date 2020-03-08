@@ -13,48 +13,34 @@ A script to automate setting up an emulated MP/M server under Z80Pack.
 # zpack_os
 Adds enhancements to the basic Z80Pack OS launch scripts.
 
-# MP/M Networking
+# MP/M and CP/Net Networking
 
-MP/M, where "M" meant "multiuser", was a Digital Research CP/M-derived network
-server supporting up to four simultaneous client connections.
+MP/M is a multi-user version of CP/M, while CP/Net is Digital Research's
+networking technology. Z80Pack uses TCP ports to facilitate network
+connections of CP/M-CP/Net clients to MP/M servers. 
 
-To emulate these connections, Z80Pack uses TCP/IP ports, which can be
-configured either for emulated local CP/M clients or as telnet ports for
-remote connection to the MP/M server. Which ports the server listens to and
-which port a client connects on are specified in configuration files stored
-in cpmsim/conf.
+client_install and server_install scripts automate the setup and
+port configuration of clients and servers under Z80Pack. Running the scripts
+repeatedly will install additional clients and servers, which are by default
+configured as follows:
 
-The example server configuration file specifies four ports as follows:
+cpm2-client1     mpm-server1 port 4002
+cpm2-client2     mpm-server1 port 4003
+cpm2-client3     mpm-server2 port 4006
+cpm2-client4     mpm-server2 port 4007
 
-# Console	telnet flag	TCP/IP port
-1		1		4000
-2		1		4001
-3		0		4002
-4		0		4003
+and so forth.
 
-The example client configuration file specifies a port for the client, e.g.
+Clients may connect to up to four servers; simply manually edit the client's
+configuration file in conf/library.
 
-# Console	host		TCP/IP port
-1		localhost	4002
+Once you have at least one server and client installed, start the network as
+follows:
 
-Z80Pack by default looks in conf/ for the config files, so careful
-management of ports and config files is required to run multiple
-simultaneous instances of clients and servers.
-
-client_install and server_install place config files in conf/library, and
-then drop links to them in conf/ in the same manner as disks/library images
-are linked in disks/. Because the configuration files are only read at
-start-up, later client and server instances can overwrite conf/ links
-without consequence. 
-
-By default, each server is assigned a range of four ports, two configured for
-ttelnet and two for local connections, while clients are consigned in pairs
-to each server. I.e., clients 1 and 2 connect to server 1, clients 3 and 4
-to server 2, and so forth. You are, of course, free to manually adjust these
-to suit your needs.
-
-Note also that clients may connected to multiple local and remote servers. E.g.:
-
-# Console	host		TCP/IP port
-1		www.sample.org	3901
-2               localhost       4006
+Start the server:      ./mpm-server1
+Load MP/M:             MPMLDR
+Star the client:       ./cpm2-client1
+Load CP/Net:           CPNETLDR
+Map a drive:           NETWORK C:=B:
+Unmap a drive:         LOCAL C:
+Check network status   CPNETSTS
