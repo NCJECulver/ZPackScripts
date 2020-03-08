@@ -814,6 +814,7 @@ function mainmenu {
 
     case $a in
       A|a) 
+           check_dependencies
            zpack
            cpmsim
            frontpanel
@@ -830,7 +831,6 @@ function mainmenu {
 }
 
 params $*             # Read in command line parameters
-check_dependencies    # Make sure all build dependencies are satisfied
 mainmenu              # And go!
 
 echo " ------------------------------ "
