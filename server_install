@@ -92,6 +92,8 @@ ln disks/library/mpm-server$servernum-2.dsk disks/driveb.dsk
 rm -f $confdir/*.conf
 ln $conflib/mpm-server$servernum.conf $confdir/net_server.conf
 #
+simcmd="./cpmsim $*"
+. ./zpack_os
 ./cpmsim $*
 EOL
 
