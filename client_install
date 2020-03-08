@@ -93,9 +93,9 @@ ln disks/library/cpm2-client$clientnum.dsk disks/drivea.dsk
 rm -f $confdir/*.conf
 ln $conflib/cpm2-client$clientnum.conf $confdir/net_client.conf
 #
-simcmd="./cpmsim $*"
+simcmd="./cpmsim \$*"
 . ./zpack_os
-./cpmsim $*
+./cpmsim \$*
 EOL
 
 chmod +x $script
