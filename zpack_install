@@ -25,16 +25,21 @@
 # # VARIABLES: 
   dependencies="sudo wget git build-essential libjpeg8-dev libx11-dev mesa-common-dev libglu1-mesa-dev freeglut3-dev libxmu-dev socat"
 
-  zver=dev            # Z80Pack version you wish to install; e.g., 1.36 or dev
-  zroot=$(pwd)        # where to put z80pack-x.yy/; default to current dir
-  case $zver in
-    dev)
-      zloc=$zroot/z80pack 
-      ;;
-    *)
-      zloc=$zroot/z80pack-$zver
-      ;;
+# The version of Z80Pack to be installed. At this time v1.36 is the most recent. Possible values include
+# 1.20, 1.21 ... 1.36 (earlier versions have not been tested), "master" or "latest" for whatever the most 
+# recent version at Github is, or "dev" to grab the current development branch at Github. Defaults to 
+# "latest".
+
+  zver=latest         # Default if nothing is specified on the command line.
+  case $1 in          # split into separate cases just for ease of reading
+    1.10|1.11|1.12|1.13|1.14|1.15|1.16|1.17|1.18|1.19) zver=$1 ;;
+    1.20|1.21|1.22|1.23|1.24|1.25|1.26|1.27|1.28|1.29) zver=$1 ;;
+    1.30|1.31|1.32|1.33|1.34|1.35|1.36)                zver=$1 ;;
+    dev|master|latest)                                 zver=$1 ;;
   esac
+
+  zroot=$(pwd)        # where to put z80pack-x.yy/; default to current dir
+  zloc=$zroot/z80pack-$zver
   osenv=linux         # Your operating environment; one of linux, cygwin, osx, solaris or bsd 
   sharedlib=/usr/lib  # a shared library directory on your system; libfrontpanel.so goes here
 
@@ -54,228 +59,57 @@
 #
 # -------------------------- End of configuration area. -------------------------- 
 
-check_dependencies () {
-missing=""
-
-  echo " "
-  echo "---------------------------"
-  echo "Testing for dependencies..."
-  echo "---------------------------"
-  echo " "
-
-  for dependency in $dependencies ; do
-    echo $dependency
-    dpkg -S $dependency >/dev/null 2>/dev/null || missing=$missing$dependency" "
-  done
-
-  if [[ ! -z "$missing" ]]; then
-    echo "---------------------------------"
-    echo "ERROR: Some dependencies are missing. They must be installed before continuing."
-    echo "       They may be installed with the following command:"
-    echo " "
-    echo "       sudo apt-get install $missing"
-    echo " "
-    echo " **** Z80Pack installation is not complete. ****"
-    echo "---------------------------------"
-
-    exit 1
-  fi
-  echo " "
-  echo "All dependencies are satisfied! Continuing..."
-  echo " "
-}
-
-function zpack {
-  echo " ------------------------------ "
-  echo "   Installing Z80Pack           "
-  echo " ------------------------------ "
-
-# Obtain and unpack Z80Pack
-  mkdir -p $zroot
-  cd $zroot
-  case $zver in
+function params {
+  # default values are set at the top of this script; you may specify
+  # a different version from the command line, e.g.: zpack-install 1.34
+  case $1 in
     dev)
-      git clone https://github.com/udo-munk/z80pack.git 
-      cd z80pack 
-      git checkout dev 
-      cd -
-      ;;
+        zver=dev
+        zloc=$zroot/z80pack
+        ;;
+    1.8|1.9)
+        zver=$1
+        zloc=$zroot/z80pack-$zver
+        ;;
+
+    # The following could be combined into a single case statement; this
+    # is just more legible.
+
+    1.10|1.11|1.12|1.13|1.14|1.15|1.16|1.17|1.18|1.19)
+        zver=$1
+        zloc=$zroot/z80pack-$zver
+        ;;
+    1.20|1.21|1.22|1.23|1.24|1.25|1.26|1.27|1.28|1.29)
+        zver=$1
+        zloc=$zroot/z80pack-$zver
+        ;;
+    1.30|1.31|1.32|1.33|1.34|1.35|1.36|1.37)
+        zver=$1
+        zloc=$zroot/z80pack-$zver
+        ;;
     *)
-      wget https://www.autometer.de/unix4fun/z80pack/ftp/z80pack-$zver.tgz
-      tar xvf z80pack-$zver.tgz
-      rm z80pack-$zver.tgz
-      ;;
+        echo "Unrecognized version. Using default $zver."
   esac
+}
+
+# ======================================================================================= #
+#                                                                                         #
+#                     COMPONENT AND SOFTWARE INSTALLATION PROCEDURES                      #
+#                                                                                         #
+# ======================================================================================= #
+
+function update-script {
+  [ -f $1 ] && {
+    echo "Updating script: $1"
+    simcmd=$(grep ^./ $1)
+    sed -i 's|$simcmd|simcmd="$simcmd"|g' $1
+    sed -i 's|\.cpm|\.dsk|g' $1
+    sed -i 's|bin/sh|bin/bash|g' $1
+    sed -i 's|\./format|mkdskimg|g' $1
+    echo "[ -f ./zpack_os] && . ./zpack_os" >> $1
+    echo "\$simcmd" >> $1
   }
-
-function buildit     {
-  echo " ------------------------------ "
-  echo "   Building $component          "
-  echo " ------------------------------ "
-  # build it
-  cd $zloc/$component/
-  [ -d srcsim/ ] && cd srcsim/       # frontpanel has no srcsim/
-  make -f Makefile.$osenv
-  make -f Makefile.$osenv clean
-
-  # Backup disk images
-  if [ -d ../disks ]
-   then
-    mkdir -p disks/backups
-    [[ -f disks/library/* ]] && cp -p disks/library/* disks/backups/
-  fi
 }
-
-function cromemcosim { 
-  component=cromemcosim ; buildit 
-  }
-  
-function imsaisim    { 
-  component=imsaisim    ; buildit 
-  rm $zloc/webfrontend/civetweb/libcivetweb.a # no longer needed
-  }
-  
-function cpmsim      { 
-  component=cpmsim      ; buildit
-
-  # Compile support programs. 
-  # Make sure ~/bin is in your search path: export PATH=PATH:~/bin
-  mkdir -p ~/bin
-  cd $zloc/cpmsim/srctools
-  make
-  make install
-  make clean
-
-  # Install additional components
-  cd ..
-  wget http://www.viara.eu/download/td130-1.01.tar.gz
-  tar -xvf td130-1.01.tar.gz
-  rm td130-1.01.tar.gz
-  rm td130m
-  rm td130s
-  rm td130
-  mkdir -p conf/library/  
-
-  cat > conf/library/td130m.conf <<EOL
-# Network client configuration for TurboDOS
-#
-1               0               4040
-2               0               4042
-3               0               4044
-4               0               4046
-EOL
-
-  cat > conf/library/td130s.conf <<EOL
-# Network server configuration for TurboDOS
-#
-1        127.0.0.1              4040 
-EOL
-
-  cat > td130m <<EOL
-#!/bin/sh
-
-rm -f disks/drive[ai].dsk
-ln disks/library/td130-1.dsk disks/drivea.dsk
-ln disks/library/td130-2.dsk disks/drivei.dsk
-rm conf/*.conf
-ln conf/library/td130m.conf conf/net_server.conf
-
-./cpmsim
-EOL
-chmod +x td130m
-
-  cat > td130s <<EOL
-#!/bin/sh
-
-rm -f disks/drive[ai].dsk
-ln disks/library/td130-1.dsk disks/drivea.dsk
-ln disks/library/td130-2.dsk disks/drivei.dsk
-rm conf/*.conf
-ln conf/library/td130s.conf conf/net_client.conf
-
-./cpmsim
-EOL
-chmod +x td130s
-}
-
-function frontpanel { 
-
-# sudo apt-get install g++ libjpeg8-dev libglu1-mesa-dev libxmu-dev   
-  component=frontpanel ; buildit
-  
-  echo " ------------------------------ "
-  echo "   Enter your admin password:   "
-  echo " ------------------------------ "
-  sudo cp libfrontpanel.so $sharedlib
-}
-
-function altairsim { component=altairsim ; buildit
-  
-  # Install additional
-  cd $zloc/altairsim/
-  for mits in dbl.hex dbl.asm dbl.prn; do
-    wget https://www.autometer.de/unix4fun/z80pack/ftp/altair/$mits
-   done
-  for mits in mits-cpm22.tgz mits-cpm14.tgz mits-basic40.tgz mits-basic50.tgz mits-cpm-tools.tgz mits-cpm-ws30.tgz mits-dos.tgz
-   do
-    wget https://www.autometer.de/unix4fun/z80pack/ftp/altair/$mits
-    tar -xvf $mits
-    rm $mits
-   done
-   
-  # Make scripts
-  cat > mits-cpm22 <<EOL
-#!/bin/sh
-#
-rm -f disks/drive[abcd].dsk
-ln disks/library/mits-cpm22-56k.dsk disks/drivea.dsk
-ln disks/library/mits-cpm-tools.dsk disks/drivec.dsk
-#
-./altairsim -x dbl.hex $*
-EOL
-
-  chmod +x mits-cpm22
-
-  cat > mits-cpm14 <<EOL
-#!/bin/sh
-#
-rm -f disks/drive[abcd].dsk
-ln disks/library/mits-cpm14-24k.dsk disks/drivea.dsk
-ln disks/library/mits-cpm-tools.dsk disks/drivec.dsk
-#
-./altairsim -x dbl.hex $*
-EOL
-
-  chmod +x mits-cpm14
-
-
-  cat > mits-dos <<EOL
-#!/bin/sh
-#
-rm -f disks/drive[a].dsk
-ln disks/library/mits-dos.dsk disks/drivea.dsk
-#
-./altairsim -x dbl.hex $*
-EOL
-
-  chmod +x mits-dos
-
-}
-
-function webfrontend {
-  echo " ------------------------------ "
-  echo "   Building webfrontend         "
-  echo " ------------------------------ "
-  cd $zloc/webfrontend/civetweb/
-  make -f Makefile
-  cp libcivetweb.a $zloc      # required by imsaisim
-  make -f Makefile clean      # build so preserve it
-  mv $zloc/libcivetweb.a .
-}
-
-# -----------------------------------------
-# Component and Software Installation Menus
-# -----------------------------------------
 
 function inst () { 
 
@@ -298,21 +132,8 @@ function inst () {
   echo " Command(s) available: "
   
   # Update script files:
-  #  - replace sh with bash
-  #  - replace ".cpm" with ".dsk"
-  #  - add final three lines to accomodate zpack_os
-  
-  for scr in $2 $3 $4 $5 $6
-    do
-      sed -i 's/\.cpm/\.dsk/g' $scr
-      sed -i 's/bin\/sh/bin\/bash/g' $scr
-      sed -i 's/\.\/format/mkdskimg/g' $scr
-      simcmd=$(grep cpmsim $scr)
-      sed -i "s|$simcmd|simcmd='$simcmd'|g" $scr
-      echo "[ -f ./zpack_os] && . ./zpack_os" >> $scr
-      echo "$simcmd" >> $scr
-      echo "   $scr"
-    done
+  for s in $2 $3 $4 $5 $6; do update-script $s; done
+
   echo "+-------------------------------+"
   echo " "
 
@@ -590,26 +411,26 @@ function menu7 {
       U|u) inst drdraw.tgz             ;;
       V|v) inst algol-m.tgz   algol    ;;
       Z|z) inst wm.tgz 
-           inst vedit.tgz  
-           inst ws33.tgz  
-           inst ws40.tgz  
-           inst zde.tgz  
-           inst isis.tgz isis 
-           inst f80-344.tgz  
-           inst tinybasic.tgz  
-           inst basice.tgz  
-           inst xybasic.tgz  
-           inst lllbasic.tgz  lllbasic 
+           inst vedit.tgz 
+           inst ws33.tgz 
+           inst ws40.tgz 
+           inst zde.tgz 
+           inst cb80.tgz 
+           inst f80-344.tgz 
+           inst tinybasic.tgz 
+           inst basice.tgz 
+           inst xybasic.tgz
            inst mbasic.tgz 
-           inst bascom.tgz  
-           inst cb80.tgz  
-           inst gsx80-1.0.tgz  
+           inst bascom.tgz 
+           inst gsx80-1.0.tgz 
            inst gsx80-1.1.tgz 
-           inst gsxprg.tgz  
-           inst gsxbasic.tgz  
-           inst drgraph.tgz  
-           inst drdraw.tgz  
-           inst algol-m.tgz  algol     ;;
+           inst gsxprg.tgz 
+           inst gsxbasic.tgz 
+           inst drgraph.tgz 
+           inst drdraw.tgz
+           inst isis.tgz      isis 
+           inst lllbasic.tgz  lllbasic 
+           inst algol-m.tgz   algol    ;;
       Q|q) break ;;
       *) ;;
     esac
@@ -672,25 +493,10 @@ function menu8 {
       V|v) inst chess.tgz             ;;
       Z|z) inst pilot.tgz       pilot
            inst comal.tgz       comal
-           inst z80mr.tgz     
            inst fig80.tgz       fig80
-           inst forth.tgz     
            inst tp301a.tgz      tp
-           inst qc31a.tgz       
            inst c80.tgz         c80
-           inst hd-htc.tgz    
-           inst kermit.tgz    
-           inst cpm3tools.tgz 
-           inst help.tgz      
-           inst adv-a02.tgz   
-           inst adv-a02-src.tgz 
-           inst adv-b00.tgz   
-           inst adv-b01.tgz   
-           inst adv-b03.tgz   
-           inst rogue.tgz    
-           inst nemesis.tgz   
-           inst infocom.tgz   
-           inst chess.tgz             ;;
+           for a in z80mr.tgz forth.tgz qc31a.tgz hd-htc.tgz kermit.tgz cpm3tools.tgz help.tgz adv-a02.tgz adv-a02-src.tgz adv-b00.tgz adv-b01.tgz adv-b03.tgz rogue.tgz nemesis.tgz infocom.tgz chess.tgz; do inst $a; done ;;
       Q|q) break              ;;
       *)                      ;;
     esac
@@ -761,51 +567,310 @@ function otherstuff {
   done
 }
 
-function params {
-  # default values are set at the top of this script; you may specify
-  # a different version from the command line, e.g.: zpack-install 1.34
-  case $1 in
-    dev)
-        zver=dev
-        zloc=$zroot/z80pack
-        ;;
-    1.8|1.9)
-        zver=$1
-        zloc=$zroot/z80pack-$zver
-        ;;
+# ======================================================================================= #
+#                                                                                         #
+#                            Z80PACK INSTALLATION PROCEDURES                              #
+#                                                                                         #
+# ======================================================================================= #
 
-    # The following could be combined into a single case statement; this
-    # is just more legible.
+function check_dependencies() {
+  unset missing
 
-    1.10|1.11|1.12|1.13|1.14|1.15|1.16|1.17|1.18|1.19)
-        zver=$1
-        zloc=$zroot/z80pack-$zver
-        ;;
-    1.20|1.21|1.22|1.23|1.24|1.25|1.26|1.27|1.28|1.29)
-        zver=$1
-        zloc=$zroot/z80pack-$zver
-        ;;
-    1.30|1.31|1.32|1.33|1.34|1.35|1.36|1.37)
-        zver=$1
-        zloc=$zroot/z80pack-$zver
-        ;;
-    *)
-        echo "Unrecognized version. Using default $zver."
+  echo " "
+  echo "---------------------------"
+  echo "Testing for dependencies..."
+  echo "---------------------------"
+  echo " "
+
+  for dependency in $dependencies ; do
+    echo $dependency
+    dpkg -S $dependency >/dev/null 2>/dev/null || missing=$missing$dependency" "
+  done
+
+  if [[ ! -z "$missing" ]]; then
+    echo "---------------------------------"
+    echo "ERROR: Some dependencies are missing. They must be installed before continuing."
+    echo "       They may be installed with the following command:                       "
+    echo "                                                                               "
+    echo "       sudo apt-get install $missing                                           "
+    echo "                                                                               "
+    echo " **** Z80Pack installation is not complete. ****                               "
+    echo "---------------------------------                                              "
+
+    exit 1
+  fi
+  echo " "
+  echo "All dependencies are satisfied! Continuing..."
+  echo " "
+}
+
+function getzpack {
+# Obtain and unpack Z80Pack
+  echo " ------------------------------ "
+  echo "    Fetching Z80Pack $zver       "
+  echo " ------------------------------ "
+
+  case $zver in
+    dev|master|latest)
+      git clone https://github.com/udo-munk/z80pack.git
+      [ "$zver" = "dev" ] && { cd z80pack; git checkout dev; cd ..; }
+      mv z80pack z80pack-$zver
+      ;;
+    1.10|1.11|1.12|1.13|1.14|1.15|1.16|1.17|1.18|1.19|1.20|1.21|1.22|1.23|1.24|1.25|1.26|1.27|1.28|1.29|1.30|1.31|1.32|1.33|1.34|1.35|1.36)
+      mkdir -p $zroot; cd $zroot
+      wget https://www.autometer.de/unix4fun/z80pack/ftp/z80pack-$zver.tgz
+      tar xvf z80pack-$zver.tgz
+      rm z80pack-$zver.tgz
+      cd $zloc
+      ;;
   esac
 }
 
-# --- MAIN ---
+function getcpmtools {
+  echo " ------------------------------ "
+  echo "    Fetching CP/M Tools 2.20    "
+  echo " ------------------------------ "
+
+  mkdir -p cpmtools; cd cpmtools
+  wget http://www.moria.de/~michael/cpmtools/files/cpmtools-2.20.tar.gz
+  tar xzvf cpmtools-2.20.tar.gz
+  rm cpmtools-2.20.tar.gz
+  cd $zloc
+}
+
+function cpmsim_additional { 
+  mkdir -p $zloc/cpmsim/; cd $zloc/cpmsim
+  wget http://www.viara.eu/download/td130-1.01.tar.gz
+  tar -xvf td130-1.01.tar.gz
+  rm td130-1.01.tar.gz
+  rm td130m
+  rm td130s
+  rm td130
+
+  mkdir -p conf/library
+  cat > conf/library/td130m.conf <<EOL
+# Network client configuration for TurboDOS
+#
+1               0               4040
+2               0               4042
+3               0               4044
+4               0               4046
+EOL
+
+  cat > conf/library/td130s.conf <<EOL
+# Network server configuration for TurboDOS
+#
+1        127.0.0.1              4040 
+EOL
+
+  cat > td130m <<EOL
+#!/bin/sh
+
+rm -f disks/drive[ai].dsk
+ln disks/library/td130-1.dsk disks/drivea.dsk
+ln disks/library/td130-2.dsk disks/drivei.dsk
+rm conf/*.conf
+ln conf/library/td130m.conf conf/net_server.conf
+
+./cpmsim
+EOL
+chmod +x td130m
+
+  cat > td130s <<EOL
+#!/bin/sh
+
+rm -f disks/drive[ai].dsk
+ln disks/library/td130-1.dsk disks/drivea.dsk
+ln disks/library/td130-2.dsk disks/drivei.dsk
+rm conf/*.conf
+ln conf/library/td130s.conf conf/net_client.conf
+
+./cpmsim
+EOL
+chmod +x td130s
+
+  # Update scripts
+  for a in td130m td130s ; do update-script $a; done
+
+cd $zloc
+}
+
+function altair_additional {
+  
+  # Install additional
+  mkdir -p $zloc/altairsim/; cd $zloc/altairsim/
+  # fetch files
+  for mits in als8-rom apple basic4k10 basic4k32 basic4k40 basic8k78-1 basic8k78 basicdisk50 basicex40 basicex41-rom basicex41 bootromt cpm13 cpm14-vdm cpm14 cpm22-vdm cpm22 cuter-mits dazzlechess dbl killbits kscope life mbl microchess miniboot mits-basic40 mits-basic50 mits-cpm-tools mits-cpm-ws30 mits-cpm14 mits-cpm22 mits-dos soft1 tinybasic-1.0 tinybasic-2.0 turnmon ucsd-booter ucsd-i5-interp umzapex vdm-stuff vdm1 vmd2 vmd3 vdmdrv xmodem xybasic zapple; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/altair" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+  rm robots.*
+
+  # Make additional scripts
+  cat > mits-cpm22 <<EOL
+#!/bin/sh
+#
+rm -f disks/drive[abcd].dsk
+ln disks/library/mits-cpm22-56k.dsk disks/drivea.dsk
+ln disks/library/mits-cpm-tools.dsk disks/drivec.dsk
+#
+./altairsim -x dbl.hex $*
+EOL
+  chmod +x mits-cpm22
+
+  cat > mits-cpm14 <<EOL
+#!/bin/sh
+#
+rm -f disks/drive[abcd].dsk
+ln disks/library/mits-cpm14-24k.dsk disks/drivea.dsk
+ln disks/library/mits-cpm-tools.dsk disks/drivec.dsk
+#
+./altairsim -x dbl.hex $*
+EOL
+  chmod +x mits-cpm14
+
+  cat > mits-dos <<EOL
+#!/bin/sh
+#
+rm -f disks/drive[a].dsk
+ln disks/library/mits-dos.dsk disks/drivea.dsk
+#
+./altairsim -x dbl.hex $*
+EOL
+  chmod +x mits-dos
+
+  # Update scripts
+  for a in cpm13 cpm14 cpm22 mits-cpm22 mits-cpm14 mits-dos ; do update-script $a; done
+   
+  cd $zloc
+}
+
+function imsai_additional {
+  
+  # fetch files
+  mkdir -p $zloc/imsaisim/; cd $zloc/imsaisim/
+  for mits in mpu-a-rom mpu-b-rom viofm1 tarbboot memon80 basic4k basic8k xybasic microchess scs1 bit lightdemo kscope life vmode um-cpm13 imsai-cpm13 imgen cpm22 imdos202 imdos205r1-maslin imdos205r1-peters f80-305 f80-31 chargen vbasic vio-stuff ws092 ws30 enchanter ucsd-iv srcucsd-iv; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/imsai" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+  rm robots.*
+
+  # Update scripts
+  for a in cpm22 imdos202 imdos205r1-maslin imdos205r1-peters imsai-cpm13 ucsd um-cpm13; do update-script $a; done
+   
+  cd $zloc
+}
+
+function cromemco_additional {
+  mkdir -p $zloc/imsaisim/; cd $zloc/imsaisim/
+
+  # fetch files
+  echo "Fetching Cromemco firmware"
+  for mits in z1mon-1.0 rdos1 rdos252 rdos0312 mbc; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo "Fetching Cromemco Operating Systems"
+  for mits in cpm22 itc-cpm micah-cpm cdos00205 cdos1075 cdos2368 cdos2585 cdos2588 drivers cromix1127 cromix_work; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo "Fetching Cromix Software"
+  for mits in z80cc51 cromixprogs; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo "Fetching CDOS Software"
+  for mits in asmb31 fortran sbasic cobol lisp tools dazzler_graphics dazzler_stuff; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo "Fetching Standalone Software"
+
+  for mits in microchess kscope dzmation life dazzlechess dz-8080 4dtictactoe dazzlerwriter spacewar tankwar chase track; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  rm robots.*
+
+  # Update scripts
+  for a in cdos2368 cdos2585 cdos2588 cpm2 cromix ; do update-script $a; done
+   
+  cd $zloc
+}
+
+function build()     {
+  component=$1
+  echo " ------------------------------ "
+  echo "   Building $component          "
+  echo " ------------------------------ "
+  [ -d $zloc/$component/ ] && cd $zloc/$component/
+  [ -d srcsim/           ] && { cd srcsim        ; [ -f Makefile.$osenv ] && cp Makefile.$osenv Makefile   ; make                                     ; make clean                          ; }
+  [ -d srctools/         ] && { cd srctools      ; [ -f Makefile.$osenv ] && cp Makefile.$osenv Makefile   ; make                                     ; make clean                          ; }
+  [ -f frontpanel.h      ] && {                    [ -f Makefile.$osenv ] && cp Makefile.$osenv Makefile   ; make; sudo cp libfrontpanel.so $sharedlib; make clean                          ; }
+  [ -d cpmtools-2.20/    ] && { cd cpmtools-2.20 ; ./configure                                             ; make                                     ; make clean                          ; mkdir -p ~/bin; for a in cpmls cpmrm cpmcp cpmchmod cpmchattr mkfs.cpm fsck.cpm fsed.cpm; do [ -f $a ] && cp $a ~/bin; done; }
+  [ -d civetweb/         ] && { cd civetweb      ;                                                           make; cp libcivetweb.a $zloc             ; make clean; mv $zloc/libcivetweb.a .; }
+  [ -d disks/            ] && { [ -d disks/ ] && { mkdir -p backups ; [ -d disks/library/ ] && cp -r disks/library/* backups/ || cp -r disks/* backups/; mv backups/ disks/; }; }
+  cd $zloc
+}
+
+function cromemcosim { build cromemcosim; cromemco_additional; }
+function imsaisim    { [ -d webfrontend ] && build webfrontend; build imsaisim; imsai_additional; }
+function cpmsim      { build cpmsim; cpmsim_additional; }
+function mosteksim   { build mosteksim; }
+function cpmtools    { getcpmtools; build cpmtools; }
+function altairsim   { build frontpanel; build altairsim; altair_additional; } # frontpanel is required for altairsim
+
+function mainstuff {
+  check_dependencies
+  getzpack
+  while :
+  do
+    echo "+----------------------------------------------------------+"
+    echo "|                    SYSTEM COMPONENTS                     |"
+    echo "| A) CP/M emulation (cpmsim)                               |"
+    echo "| B) Altair emulation (altairsim)                          |"
+    echo "| C) Cromemco emulation (cromemcosim)                      |"
+    echo "| D) IMSAI emulation (imsaisim)                            |"
+    [ -d $zloc/mosteksim ] && \
+    echo "| E) Mostek emulation (mosteksim)                          |"
+    echo "| F) CP/M Tools v2.20 (cpmtools)                           |"
+    echo "|                                                          |"
+    echo "| Z) All of the above                                      |"
+    echo "+----------------------------------------------------------+"
+    echo "  Ready to install Z80Pack $zver to $zloc                   "
+    read -p "Choose a component (Q to exit): " a
+
+    case $a in
+      A|a) cpmsim      ;;
+      B|b) altairsim   ;;
+      C|c) cromemcosim ;;
+      D|d) imsaisim    ;;
+      E|e) mosteksim   ;;
+      F|f) cpmtools    ;;
+      Z|z) for a in cpmsim altairsim cromemcosim imsaisim mosteksim cpmtools; do $a; done ;;
+      Q|q) break       ;;
+      *)               ;;
+    esac
+  done
+}
+
+# ======================================================================================= #
+#                                                                                         #
+#                                      MAIN MENU                                          #
+#                                                                                         #
+# ======================================================================================= #
 
 function mainmenu {
   while :
   do
     echo "+----------------------------------------------------------+"
-    echo "|                                                          |"
-    echo "| Ready to install Z80Pack ver. $zver                       "
-    echo "| to directory: $zloc                                       "
-    echo "|                                                          |"
-    echo "+----------------------------------------------------------+"
-    echo "|                   Z80Pack Installation                   |"
+    echo "|                 Z80Pack $zver Installation                |"
     echo "|                                                          |"
     echo "| A) Install Z80Pack base system (may take a while).       |"
     echo "| B) Install additional software and components.           |"
@@ -813,16 +878,7 @@ function mainmenu {
     read -p "Choose base system or components (Q to return): " a
 
     case $a in
-      A|a) 
-           check_dependencies
-           zpack
-           cpmsim
-           frontpanel
-           altairsim
-           cromemcosim
-           [ -d $zloc/webfrontend/ ] && webfrontend # webfrontend is not in 1.36 or earlier
-           imsaisim
-          ;;
+      A|a) mainstuff  ;;
       B|b) otherstuff ;;
       Q|q) break      ;;
       *)              ;;
