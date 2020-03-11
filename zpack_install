@@ -704,7 +704,7 @@ function altair_additional {
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/altair" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
-  rm robots.*
+  rm robots.*; rm *.1; rm *.2; rm *.3
 
   # Make additional scripts
   cat > mits-cpm22 <<EOL
@@ -753,7 +753,7 @@ function imsai_additional {
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/imsai" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
-  rm robots.*
+  rm robots.*; rm *.1; rm *.2; rm *.3
 
   # Update scripts
   for a in cpm22 imdos202 imdos205r1-maslin imdos205r1-peters imsai-cpm13 ucsd um-cpm13; do update-script $a; done
@@ -796,7 +796,7 @@ function cromemco_additional {
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
 
-  rm robots.*
+  rm robots.*; rm *.1; rm *.2; rm *.3
 
   # Update scripts
   for a in cdos2368 cdos2585 cdos2588 cpm2 cromix ; do update-script $a; done
