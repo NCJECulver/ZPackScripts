@@ -816,6 +816,12 @@ function build()     {
   [ -d cpmtools-2.20/    ] && { cd cpmtools-2.20 ; ./configure                                             ; make                                     ; make clean                          ; mkdir -p ~/bin; for a in cpmls cpmrm cpmcp cpmchmod cpmchattr mkfs.cpm fsck.cpm fsed.cpm; do [ -f $a ] && cp $a ~/bin; done; }
   [ -d civetweb/         ] && { cd civetweb      ;                                                           make; cp libcivetweb.a $zloc             ; make clean; mv $zloc/libcivetweb.a .; }
   [ -d disks/            ] && { [ -d disks/ ] && { mkdir -p backups ; [ -d disks/library/ ] && cp -r disks/library/* backups/ || cp -r disks/* backups/; mv backups/ disks/; }; }
+
+  # Cleanup
+  # [ -d $zloc/$component/ ] && cd $zloc/$component/
+  # rm -r src*
+  # rm cpmtools*
+  
   cd $zloc
 }
 
@@ -866,6 +872,30 @@ function mainstuff {
 #                                                                                         #
 # ======================================================================================= #
 
+function warning {
+
+    echo "+----------------------------------------------------------+"
+    echo "|                         WARNING!                         |"
+    echo "|                                                          |"
+    echo "|              ------------------------------              |"
+    echo "|        If you continue, this script will happily         |"
+    echo "|         overwrite any data you currently have.           |"
+    echo "|              ------------------------------              |"
+    echo "|                                                          |"
+    echo "|  If you're OK with that, enter 'OK' and press enter to   |"
+    echo "|    continue. Any other response will abort so you can    |"
+    echo "|                 back up your data first.                 |"
+    echo "|                                                          |"
+    echo "|        Choose wisely. This is your only warning.         |"
+    echo "+----------------------------------------------------------+"
+    read -p "Choose base system or components (OK to continue): " a
+
+    case $a in
+      ok|OK|oK|Ok)  ;;
+      *) exit 1     ;;
+    esac
+}
+
 function mainmenu {
   while :
   do
@@ -886,6 +916,7 @@ function mainmenu {
   done
 }
 
+warning
 params $*             # Read in command line parameters
 mainmenu              # And go!
 
