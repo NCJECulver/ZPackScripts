@@ -1,9 +1,15 @@
 #!/bin/bash
 
-# VERSION: 2019.10.25
-# VERSION: 2019.12.16 Added dependencies check
-# VERSION: 2020-02-20 Updated libjpeg8-dev to libjpeg62-turbo-dev
-#                     Some distros don't have git, wget, sudo; added to dependencies check
+
+# 2020.03-12 Added initial warning.
+#            Added [ ! -z ] test to "unrecognized version" message
+#            Yet more bug fixes to launch script update code; some day I'll get it right
+#            Added script called "boot" to the the altair additions script update for loop.
+# 2020.03-11 Massive rewrites throughout.
+# 2020-02-20 Updated libjpeg8-dev to libjpeg62-turbo-dev
+#            Some distros don't have git, wget, sudo; added to dependencies check
+# 2019.12.16 Added dependencies check
+# 2019.10.25
 
 # DEPENDENCIES:
 # Building Z80Pack and its components requires the following. Run "sudo apt-get update"
@@ -88,7 +94,7 @@ function params {
         zloc=$zroot/z80pack-$zver
         ;;
     *)
-        echo "Unrecognized version. Using default $zver."
+        [ ! -z $1 ] && echo "Unrecognized version. Using default $zver."
   esac
 }
 
@@ -101,12 +107,21 @@ function params {
 function update-script {
   [ -f $1 ] && {
     echo "Updating script: $1"
-    simcmd=$(grep ^./ $1)
-    sed -i 's|$simcmd|simcmd="$simcmd"|g' $1
-    sed -i 's|\.cpm|\.dsk|g' $1
     sed -i 's|bin/sh|bin/bash|g' $1
+    sed -i 's|\.cpm|\.dsk|g' $1
     sed -i 's|\./format|mkdskimg|g' $1
-    echo "[ -f ./zpack_os] && . ./zpack_os" >> $1
+#   Discovered a script ("boot" in altairsim) where the simcmd doesn't begin in col 1, so can't use this code.
+#    simcmd=$(grep ^./ $1)
+#    sed -i 's|^./|#./|' $1
+#   Make sure all other ./ code, such as replacing ./format, runs before this.
+    simcmd=$(grep ./ $1)     # no "/g", so grabs first instance only.
+    sed -i 's|./|#./|' $1    # ditto
+
+    #---- ZPack_OS mods
+    echo "" >> $1
+    echo "#---- ZPack_OS mods" >> $1
+    echo "simcmd='$simcmd'" >> $1
+    echo "[ -f ./zpack_os ] && . ./zpack_os" >> $1
     echo "\$simcmd" >> $1
   }
 }
@@ -698,10 +713,69 @@ cd $zloc
 function altair_additional {
   
   # Install additional
+  source="https://www.autometer.de/unix4fun/z80pack/ftp/altair"
+  
   mkdir -p $zloc/altairsim/; cd $zloc/altairsim/
-  # fetch files
-  for mits in als8-rom apple basic4k10 basic4k32 basic4k40 basic8k78-1 basic8k78 basicdisk50 basicex40 basicex41-rom basicex41 bootromt cpm13 cpm14-vdm cpm14 cpm22-vdm cpm22 cuter-mits dazzlechess dbl killbits kscope life mbl microchess miniboot mits-basic40 mits-basic50 mits-cpm-tools mits-cpm-ws30 mits-cpm14 mits-cpm22 mits-dos soft1 tinybasic-1.0 tinybasic-2.0 turnmon ucsd-booter ucsd-i5-interp umzapex vdm-stuff vdm1 vmd2 vmd3 vdmdrv xmodem xybasic zapple; do
-     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/altair" -A "$mits.*"
+
+  # these could all be combined into a single for loop; grouping them allows progress reports like "Fetching BASIC software"
+  
+  echo " "
+  echo "--------------------------------------"
+  echo "Fetching Standalone BASIC interpreters"
+  echo "--------------------------------------"
+  echo " "
+  for mits in basic4k10 basic4k32 basic4k40 basic8k32 basic8k40 basicex40 basicex41 basicex41-rom basicdisk50 vdmdrv tinybasic-1.0 tinybasic-2.0 xybasic basic8k78; do
+     wget -r -l1 -np -nd "$source" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+  done
+  
+  echo " "
+  echo "------------------------------------"
+  echo "Fetching Various standalone software"
+  echo "------------------------------------"
+  echo " "
+  for mits in killbits turnmon soft1 als8-rom mbl microchess kscope life dazzlechess vdm1 vdm2 vdm3 cuter-mits; do
+     wget -r -l1 -np -nd "$source" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo " "
+  echo "-------------------------------------"
+  echo "Fetching Standalone Software from TDL"
+  echo "-------------------------------------"
+  echo " "
+  for mits in apple zapple umzapex tdl8kbas tdl12kbas; do
+     wget -r -l1 -np -nd "$source" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+  
+  echo " "
+  echo "----------------------------------"
+  echo "Fetching CP/M software for Tarbell"
+  echo "----------------------------------"
+  echo " "
+  for mits in miniboot bootromt cpm13 cpm14 cpm14-vdm cpm22 cpm22-vdm xmodem vdm-stuff tdlsoft; do
+     wget -r -l1 -np -nd "$source" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo " "
+  echo "------------------------------------"
+  echo " Software for MITS (req. ZPack 1.37)"
+  echo "------------------------------------"
+  echo " "
+  for mits in dbl mits-cpm14 mits-cpm22 mits-cpm-tools mits-cpm-ws30 mits-basic40 mits-basic50 mits-dos; do
+     wget -r -l1 -np -nd "$source" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo " "
+  echo "--------------------------"
+  echo " UCSD p-System for Tarbell"
+  echo "--------------------------"
+  echo " "
+  for mits in ucsd-booter ucsd-i5 ucsd-i5-interp; do
+     wget -r -l1 -np -nd "$source" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
   rm robots.*; rm *.1; rm *.2; rm *.3
@@ -739,8 +813,8 @@ ln disks/library/mits-dos.dsk disks/drivea.dsk
 EOL
   chmod +x mits-dos
 
-  # Update scripts
-  for a in cpm13 cpm14 cpm22 mits-cpm22 mits-cpm14 mits-dos ; do update-script $a; done
+  # Update scripts; note: "boot" fails due to irregular structure
+  for a in boot cpm13 cpm14 cpm22 mits-cpm22 mits-cpm14 mits-dos ucsd; do update-script $a; done
    
   cd $zloc
 }
@@ -765,32 +839,41 @@ function cromemco_additional {
   mkdir -p $zloc/imsaisim/; cd $zloc/imsaisim/
 
   # fetch files
+  echo "--------------------------"
   echo "Fetching Cromemco firmware"
+  echo "--------------------------"
   for mits in z1mon-1.0 rdos1 rdos252 rdos0312 mbc; do
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
 
+  echo "-----------------------------------"
   echo "Fetching Cromemco Operating Systems"
+  echo "-----------------------------------"
   for mits in cpm22 itc-cpm micah-cpm cdos00205 cdos1075 cdos2368 cdos2585 cdos2588 drivers cromix1127 cromix_work; do
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
 
+  echo "------------------------"
   echo "Fetching Cromix Software"
+  echo "------------------------"
   for mits in z80cc51 cromixprogs; do
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
 
+  echo "----------------------"
   echo "Fetching CDOS Software"
+  echo "----------------------"
   for mits in asmb31 fortran sbasic cobol lisp tools dazzler_graphics dazzler_stuff; do
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
 
+  echo "----------------------------"
   echo "Fetching Standalone Software"
-
+  echo "----------------------------"
   for mits in microchess kscope dzmation life dazzlechess dz-8080 4dtictactoe dazzlerwriter spacewar tankwar chase track; do
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
@@ -882,25 +965,19 @@ function warning {
     echo "|         overwrite any data you currently have.           |"
     echo "|              ------------------------------              |"
     echo "|                                                          |"
-    echo "|  If you're OK with that, enter 'OK' and press enter to   |"
-    echo "|    continue. Any other response will abort so you can    |"
-    echo "|                 back up your data first.                 |"
+    echo "| If you're not OK with that, select 'Q' to quit now and   |"
+    echo "| back up your data. Only continue if you're sure your     |"
+    echo "| data is safe.                                            |"
     echo "|                                                          |"
     echo "|        Choose wisely. This is your only warning.         |"
     echo "+----------------------------------------------------------+"
-    read -p "Choose base system or components (OK to continue): " a
-
-    case $a in
-      ok|OK|oK|Ok)  ;;
-      *) exit 1     ;;
-    esac
 }
 
 function mainmenu {
   while :
   do
     echo "+----------------------------------------------------------+"
-    echo "|                 Z80Pack $zver Installation                |"
+    echo "|                 Z80Pack $zver Installation              |"
     echo "|                                                          |"
     echo "| A) Install Z80Pack base system (may take a while).       |"
     echo "| B) Install additional software and components.           |"
