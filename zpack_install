@@ -5,6 +5,7 @@
 #            Added [ ! -z ] test to "unrecognized version" message
 #            Yet more bug fixes to launch script update code; some day I'll get it right
 #            Added script called "boot" to the the altair additions script update for loop.
+#            Split out imsai_additional into groups
 # 2020.03-11 Massive rewrites throughout.
 # 2020-02-20 Updated libjpeg8-dev to libjpeg62-turbo-dev
 #            Some distros don't have git, wget, sudo; added to dependencies check
@@ -778,7 +779,7 @@ function altair_additional {
      wget -r -l1 -np -nd "$source" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
-  rm robots.*; rm *.1; rm *.2; rm *.3
+  rm robots.*; rm *.prn; rm *.1; rm *.2; rm *.3
 
   # Make additional scripts
   cat > mits-cpm22 <<EOL
@@ -820,13 +821,89 @@ EOL
 }
 
 function imsai_additional {
-  
-  # fetch files
   mkdir -p $zloc/imsaisim/; cd $zloc/imsaisim/
-  for mits in mpu-a-rom mpu-b-rom viofm1 tarbboot memon80 basic4k basic8k xybasic microchess scs1 bit lightdemo kscope life vmode um-cpm13 imsai-cpm13 imgen cpm22 imdos202 imdos205r1-maslin imdos205r1-peters f80-305 f80-31 chargen vbasic vio-stuff ws092 ws30 enchanter ucsd-iv srcucsd-iv; do
-     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/imsai" -A "$mits.*"
+
+  echo ""
+  echo "--------------------------"
+  echo "Fetching Firmware         "
+  echo "--------------------------"
+  echo ""
+  for mits in mpu-a-rom mpu-b-rom viofm1 tarbboot memon80; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
+
+  echo ""
+  echo "---------------------------"
+  echo "Fetching BASIC interpreters"
+  echo "---------------------------"
+  echo ""
+  for mits in basic4k basic8k xybasic; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo ""
+  echo "------------------------------------"
+  echo "Fetching various standalone software"
+  echo "------------------------------------"
+  echo ""
+  for mits in microchess scs1 bit lightdemo kscope life imsai-boot imsai-bios; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo ""
+  echo "-----------------"
+  echo "Fetching CP/M 1.3"
+  echo "-----------------"
+  echo ""
+  for mits in imsai-cpm13 um-cpm13 imgen; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo ""
+  echo "-----------------"
+  echo "Fetching CP/M 2.2"
+  echo "-----------------"
+  echo ""
+  for mits in cpm22; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo ""
+  echo "-----------------"
+  echo "Fetching IMDOS   "
+  echo "-----------------"
+  echo ""
+  for mits in imdos202 imdos205r0 imdos205r1-maslin imdos205r1-peters ; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo ""
+  echo "----------------------------"
+  echo "Fetching CP/M-IMDOS software"
+  echo "----------------------------"
+  echo ""
+  for mits in f80-305 f80-31 vmode chargen vbasic vio-stuff ws092 ws30 enchanter; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  echo ""
+  echo "-------------------------"
+  echo "Fetching UCSD p-System IV"
+  echo "-------------------------"
+  echo ""
+  for mits in ucsd-iv srcucsd-iv; do
+     wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
+     [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
+   done
+
+  # Clean up
   rm robots.*; rm *.1; rm *.2; rm *.3
 
   # Update scripts
@@ -836,44 +913,54 @@ function imsai_additional {
 }
 
 function cromemco_additional {
-  mkdir -p $zloc/imsaisim/; cd $zloc/imsaisim/
+  mkdir -p $zloc/cromemcosim/; cd $zloc/cromemcosim/
 
   # fetch files
+  echo ""
   echo "--------------------------"
   echo "Fetching Cromemco firmware"
   echo "--------------------------"
+  echo ""
   for mits in z1mon-1.0 rdos1 rdos252 rdos0312 mbc; do
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
 
+  echo ""
   echo "-----------------------------------"
   echo "Fetching Cromemco Operating Systems"
   echo "-----------------------------------"
+  echo ""
   for mits in cpm22 itc-cpm micah-cpm cdos00205 cdos1075 cdos2368 cdos2585 cdos2588 drivers cromix1127 cromix_work; do
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
 
+  echo ""
   echo "------------------------"
   echo "Fetching Cromix Software"
   echo "------------------------"
+  echo ""
   for mits in z80cc51 cromixprogs; do
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
 
+  echo ""
   echo "----------------------"
   echo "Fetching CDOS Software"
   echo "----------------------"
+  echo ""
   for mits in asmb31 fortran sbasic cobol lisp tools dazzler_graphics dazzler_stuff; do
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
    done
 
+  echo ""
   echo "----------------------------"
   echo "Fetching Standalone Software"
   echo "----------------------------"
+  echo ""
   for mits in microchess kscope dzmation life dazzlechess dz-8080 4dtictactoe dazzlerwriter spacewar tankwar chase track; do
      wget -r -l1 -np -nd "https://www.autometer.de/unix4fun/z80pack/ftp/cromemco" -A "$mits.*"
      [ -f $mits.tgz ] && { tar -xzvf $mits.tgz; rm $mits.tgz; }
@@ -889,9 +976,11 @@ function cromemco_additional {
 
 function build()     {
   component=$1
+  echo ""
   echo " ------------------------------ "
   echo "   Building $component          "
   echo " ------------------------------ "
+  echo ""
   [ -d $zloc/$component/ ] && cd $zloc/$component/
   [ -d srcsim/           ] && { cd srcsim        ; [ -f Makefile.$osenv ] && cp Makefile.$osenv Makefile   ; make                                     ; make clean                          ; }
   [ -d srctools/         ] && { cd srctools      ; [ -f Makefile.$osenv ] && cp Makefile.$osenv Makefile   ; make                                     ; make clean                          ; }
