@@ -1,6 +1,23 @@
-#!/bin/bash
+!/bin/bash
 
-
+#========================================================================================#
+#                                Z80-Pack Installation Script                            #
+#========================================================================================#
+#                                                                                        #
+# This script automates the installation of the Z80Pack system emulators and additional  #
+# software. Z80Pack provides emulation for a number of 8-bit systems, including all      #
+# versions of CP/M, UCSD p-System, Altair, Cromemco and IMSAI computer systems, and      #
+# supported operating systems.                                                           #
+#                                                                                        #
+# In addition to the operating systems, the Z80Pack website makes available a large      #
+# selection of software which can be downloaded and installed. In addition to choosing   #
+# the emulator(s) you wish to install (CP/Msim, Cromemcosim, Altairsim and/or IMSAIsim), #
+# a series of menus allow youto choose additional software.                              #
+#                                                                                        #
+# NOTE that this script does not check for the presence of already installed software,   #
+# and so will overwrite anything you've already god in place. Please be advised to backup#
+# your work first.                                                                       #
+#----------------------------------------------------------------------------------------#
 # 2020.03-12 Added initial warning.
 #            Added [ ! -z ] test to "unrecognized version" message
 #            Yet more bug fixes to launch script update code; some day I'll get it right
@@ -8,6 +25,7 @@
 #            Split out imsai_additional into groups
 #            Added alternate dependency list for Alpine Linux and dependency check code for
 #            apk package manager. Untested.
+#            Added description at top of comments section.
 # 2020.03-11 Massive rewrites throughout.
 # 2020-02-20 Updated libjpeg8-dev to libjpeg62-turbo-dev
 #            Some distros don't have git, wget, sudo; added to dependencies check
@@ -627,14 +645,15 @@ function check_dependencies() {
   done
 
   if [[ ! -z "$missing" ]]; then
-    echo "---------------------------------"
+    echo "-------------------------------------------------------------------------------"
     echo "ERROR: Some dependencies are missing. They must be installed before continuing."
-    echo "       They may be installed with the following command:                       "
+    echo "       They may be installed with one of the following commands:               "
     echo "                                                                               "
     echo "       sudo apt-get install $missing                                           "
+    echo "       apk add $missing                                                        "
     echo "                                                                               "
     echo " **** Z80Pack installation is not complete. ****                               "
-    echo "---------------------------------                                              "
+    echo "-------------------------------------------------------------------------------"
 
     exit 1
   fi
