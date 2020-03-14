@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 
 #========================================================================================#
 #                                Z80-Pack Installation Script                            #
@@ -71,12 +71,12 @@
         dev|master|latest)                                 zver=$1 ;;
       esac
 
-    zroot=$(pwd)        # where to put z80pack-x.yy/; default to current dir
+    zroot=$(pwd)        # where to put z80pack-x.yy/
+    zloc=$zroot/z80pack-$zver
 
   # Set name and location of Z80Pack install dir. Default location is current directory, and name is
   # "z80pack-$zver". If this script is being used in the Z80Pack-for-Docker, then $zloc is current dir.
-    zloc=$zroot/z80pack-$zver
-    [ "$Docker" = "yes" ] zloc=$(pwd)
+    [ "$Docker" = "yes" ] && zloc=$basename -- $0)/z80pack
 
     sharedlib=/usr/lib  # a shared library directory on your system; libfrontpanel.so goes here
 
