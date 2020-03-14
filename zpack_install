@@ -55,7 +55,6 @@
 # 1.20, 1.21 ... 1.36 (earlier versions have not been tested); "master" or "latest" for whatever the most 
 # recent version at Github is; or "dev" to grab the current development branch at Github. Defaults to 
 # "master".
-
   zver=master         # Default if nothing is specified on the command line.
   case $1 in          # split into separate cases just for ease of reading
     1.10|1.11|1.12|1.13|1.14|1.15|1.16|1.17|1.18|1.19) zver=$1 ;;
@@ -66,8 +65,14 @@
 
   zroot=$(pwd)        # where to put z80pack-x.yy/; default to current dir
   zloc=$zroot/z80pack-$zver
+
+  # In the Docker image, Z80Pack is installed in just $zroot/z80pack, not $zroot/z80pack-$zver.
+  # So if $zroot/z80pack-$zver doesn't exist AND $zroot/z80pack does, set $zloc to that instead.
+  [ ! -d $zloc ] && [ -d $zloc/z80pack ] && zloc=$zroot/z80pack
+
   osenv=linux         # Your operating environment; one of linux, cygwin, osx, solaris or bsd;
                       # als "alpine", which will be reset to "linux" after dependency check
+
   sharedlib=/usr/lib  # a shared library directory on your system; libfrontpanel.so goes here
 
   # Dependencies can vary from system to system.
