@@ -19,7 +19,8 @@
 # your work first.                                                                       #
 #----------------------------------------------------------------------------------------#
 # 2020.03-14 $zloc value is different when script is run inside Z80Pack-for-Docker. Added
-#            test code to set $zloc accordingly.
+#            test code to set $zloc accordingly. Several rounds of changes and testing
+#            trying to get this right. Eventually, settled on setting a variable $docker.
 # 2020.03-12 Added initial warning.
 #            Added [ ! -z ] test to "unrecognized version" message
 #            Yet more bug fixes to launch script update code; some day I'll get it right
@@ -76,7 +77,7 @@
 
   # Set name and location of Z80Pack install dir. Default location is current directory, and name is
   # "z80pack-$zver". If this script is being used in the Z80Pack-for-Docker, then $zloc is current dir.
-    [ "$Docker" = "yes" ] && zloc="$(dirname -- $0)/z80pack"
+    [ "$docker" = "yes" ] && zloc="$(dirname -- $0)/z80pack"
 
     sharedlib=/usr/lib  # a shared library directory on your system; libfrontpanel.so goes here
 
@@ -87,7 +88,7 @@
     case osenv in
       alpine)
         dependencies="bash joe sudo git wget dpkg-dev g++ gcc make libc-dev mesa-dev libjpeg-turbo-dev libxmu-dev libx11-dev glu-dev socat tmux"
-        osenv=linux     # now reset to linux
+        osenv=linux     # other than the dependencies, alpine works as linux, so reset to linux now
         ;;
       *)
         dependencies="sudo wget git build-essential libjpeg8-dev libx11-dev mesa-common-dev libglu1-mesa-dev freeglut3-dev libxmu-dev socat"
