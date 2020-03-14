@@ -76,7 +76,7 @@
 
   # Set name and location of Z80Pack install dir. Default location is current directory, and name is
   # "z80pack-$zver". If this script is being used in the Z80Pack-for-Docker, then $zloc is current dir.
-    [ "$Docker" = "yes" ] && zloc=$basename -- $0)/z80pack
+    [ "$Docker" = "yes" ] && zloc="$(dirname -- $0)/z80pack"
 
     sharedlib=/usr/lib  # a shared library directory on your system; libfrontpanel.so goes here
 
