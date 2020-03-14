@@ -61,7 +61,7 @@
     osenv=linux         # Your operating environment; one of linux, cygwin, osx, solaris or bsd;
                         # als "alpine", which will be reset to "linux" after dependency check
 
-    docker=yes          # make some adjustments if being run in Z80Pack-for-Docker
+    docker=no           # make some adjustments if being run in Z80Pack-for-Docker
   
     zver=master         # Default if nothing is specified on the command line.
       case $1 in        # split into separate cases just for ease of reading
