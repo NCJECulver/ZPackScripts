@@ -18,6 +18,8 @@
 # and so will overwrite anything you've already god in place. Please be advised to backup#
 # your work first.                                                                       #
 #----------------------------------------------------------------------------------------#
+# 2020.03-14 $zloc value is different when script is run inside Z80Pack-for-Docker. Added
+#            test code to set $zloc accordingly.
 # 2020.03-12 Added initial warning.
 #            Added [ ! -z ] test to "unrecognized version" message
 #            Yet more bug fixes to launch script update code; some day I'll get it right
@@ -51,43 +53,46 @@
 
 # # VARIABLES: 
 
-# The version of Z80Pack to be installed. At this time v1.36 is the most recent. Possible values include
-# 1.20, 1.21 ... 1.36 (earlier versions have not been tested); "master" or "latest" for whatever the most 
-# recent version at Github is; or "dev" to grab the current development branch at Github. Defaults to 
-# "master".
-  zver=master         # Default if nothing is specified on the command line.
-  case $1 in          # split into separate cases just for ease of reading
-    1.10|1.11|1.12|1.13|1.14|1.15|1.16|1.17|1.18|1.19) zver=$1 ;;
-    1.20|1.21|1.22|1.23|1.24|1.25|1.26|1.27|1.28|1.29) zver=$1 ;;
-    1.30|1.31|1.32|1.33|1.34|1.35|1.36)                zver=$1 ;;
-    dev|master|latest)                                 zver=$1 ;;
-  esac
+  # The version of Z80Pack to be installed. At this time v1.36 is the most recent. Possible values include
+  # 1.20, 1.21 ... 1.36 (earlier versions have not been tested); "master" or "latest" for whatever the most 
+  # recent version at Github is; or "dev" to grab the current development branch at Github. Defaults to 
+  # "master".
 
-  zroot=$(pwd)        # where to put z80pack-x.yy/; default to current dir
-  zloc=$zroot/z80pack-$zver
+    osenv=linux         # Your operating environment; one of linux, cygwin, osx, solaris or bsd;
+                        # als "alpine", which will be reset to "linux" after dependency check
 
-  # In the Docker image, Z80Pack is installed in just $zroot/z80pack, not $zroot/z80pack-$zver.
-  # So if $zroot/z80pack-$zver doesn't exist AND $zroot/z80pack does, set $zloc to that instead.
-  [ ! -d $zloc ] && [ -d $zloc/z80pack ] && zloc=$zroot/z80pack
-
-  osenv=linux         # Your operating environment; one of linux, cygwin, osx, solaris or bsd;
-                      # als "alpine", which will be reset to "linux" after dependency check
-
-  sharedlib=/usr/lib  # a shared library directory on your system; libfrontpanel.so goes here
-
-  # Dependencies can vary from system to system.
+    docker=yes          # make some adjustments if being run in Z80Pack-for-Docker
   
-  # Alpine Linux. But I don't yet know a way to check whether a package is already installed on Alpine Linux.
-  #  dependencies="bash joe sudo git wget dpkg-dev g++ gcc make libc-dev mesa-dev libjpeg-turbo-dev libxmu-dev libx11-dev glu-dev socat tmux"
-  case osenv in
-    alpine)
-      dependencies="bash joe sudo git wget dpkg-dev g++ gcc make libc-dev mesa-dev libjpeg-turbo-dev libxmu-dev libx11-dev glu-dev socat tmux"
-      osenv=linux     # now reset to linux
-      ;;
-    *)
-      dependencies="sudo wget git build-essential libjpeg8-dev libx11-dev mesa-common-dev libglu1-mesa-dev freeglut3-dev libxmu-dev socat"
-      ;;
-  esac
+    zver=master         # Default if nothing is specified on the command line.
+      case $1 in        # split into separate cases just for ease of reading
+        1.10|1.11|1.12|1.13|1.14|1.15|1.16|1.17|1.18|1.19) zver=$1 ;;
+        1.20|1.21|1.22|1.23|1.24|1.25|1.26|1.27|1.28|1.29) zver=$1 ;;
+        1.30|1.31|1.32|1.33|1.34|1.35|1.36)                zver=$1 ;;
+        dev|master|latest)                                 zver=$1 ;;
+      esac
+
+    zroot=$(pwd)        # where to put z80pack-x.yy/; default to current dir
+
+  # Set name and location of Z80Pack install dir. Default location is current directory, and name is
+  # "z80pack-$zver". If this script is being used in the Z80Pack-for-Docker, then $zloc is current dir.
+    zloc=$zroot/z80pack-$zver
+    [ "$Docker" = "yes" ] zloc=$(pwd)
+
+    sharedlib=/usr/lib  # a shared library directory on your system; libfrontpanel.so goes here
+
+    # Dependencies can vary from system to system.
+   
+    # Alpine Linux. But I don't yet know a way to check whether a package is already installed on Alpine Linux.
+    #  dependencies="bash joe sudo git wget dpkg-dev g++ gcc make libc-dev mesa-dev libjpeg-turbo-dev libxmu-dev libx11-dev glu-dev socat tmux"
+    case osenv in
+      alpine)
+        dependencies="bash joe sudo git wget dpkg-dev g++ gcc make libc-dev mesa-dev libjpeg-turbo-dev libxmu-dev libx11-dev glu-dev socat tmux"
+        osenv=linux     # now reset to linux
+        ;;
+      *)
+        dependencies="sudo wget git build-essential libjpeg8-dev libx11-dev mesa-common-dev libglu1-mesa-dev freeglut3-dev libxmu-dev socat"
+        ;;
+    esac
 
 # ERRORS:
 #
