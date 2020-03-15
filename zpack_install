@@ -152,22 +152,18 @@ function params {
 
 function update-script {
   [ -f $1 ] && {
-    echo "Updating script: $1"
     sed -i 's|bin/sh|bin/bash|g' $1
     sed -i 's|\.cpm|\.dsk|g' $1
     sed -i 's|\./format|mkdskimg|g' $1
-#   Discovered a script ("boot" in altairsim) where the simcmd doesn't begin in col 1, so can't use this code.
-#    simcmd=$(grep ^./ $1)
-#    sed -i 's|^./|#./|' $1
-#   Make sure all other ./ code, such as replacing ./format, runs before this.
-    simcmd=$(grep ./ $1)     # no "/g", so grabs first instance only.
-    sed -i 's|./|#./|' $1    # ditto
+    # altairsim's "boot" launch script (are there others?) breaks this code.
+    simcmd=$(grep ^./ $1) 
+    sed -i 's|\./|#\./|' $1
 
-    #---- ZPack_OS mods
+    # zpack_os mods
     echo "" >> $1
     echo "#---- ZPack_OS mods" >> $1
     echo "simcmd='$simcmd'" >> $1
-    echo "[ -f ./zpack_os ] && . ./zpack_os" >> $1
+    echo "[ -f ../zpack_os ] && . ../zpack_os" >> $1 # Warning: assumes zpack_os is in the parent dir to cpmsim/
     echo "\$simcmd" >> $1
   }
 }
