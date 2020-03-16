@@ -18,10 +18,18 @@
 # and so will overwrite anything you've already god in place. Please be advised to backup#
 # your work first.                                                                       #
 #----------------------------------------------------------------------------------------#
-# 2020.03-14 $zloc value is different when script is run inside Z80Pack-for-Docker. Added
+# 2020.03.16 Forgotten to track all updates. Most recent includes code calling update-
+#            script in function build (and elsewhere?). This now allows passing a list
+#            of names directly to update-script, so code elsewhere has been rewritten to
+#            accomodate that; e.g., in the main functions such as function cpmsim a list
+#            is now passed as params to function build.
+#            Squashed bug in which $zloc wasn't properly set when not run in docker image.
+#
+# 2020.03.14 $zloc value is different when script is run inside Z80Pack-for-Docker. Added
 #            test code to set $zloc accordingly. Several rounds of changes and testing
 #            trying to get this right. Eventually, settled on setting a variable $docker.
-# 2020.03-12 Added initial warning.
+#
+# 2020.03.12 Added initial warning.
 #            Added [ ! -z ] test to "unrecognized version" message
 #            Yet more bug fixes to launch script update code; some day I'll get it right
 #            Added script called "boot" to the the altair additions script update for loop.
@@ -29,10 +37,14 @@
 #            Added alternate dependency list for Alpine Linux and dependency check code for
 #            apk package manager. Untested.
 #            Added description at top of comments section.
-# 2020.03-11 Massive rewrites throughout.
-# 2020-02-20 Updated libjpeg8-dev to libjpeg62-turbo-dev
+#
+# 2020.03.11 Massive rewrites throughout.
+#
+# 2020.02.20 Updated libjpeg8-dev to libjpeg62-turbo-dev
 #            Some distros don't have git, wget, sudo; added to dependencies check
+#
 # 2019.12.16 Added dependencies check
+#
 # 2019.10.25
 
 # DEPENDENCIES:
@@ -62,9 +74,7 @@
     osenv=linux         # Your operating environment; one of linux, cygwin, osx, solaris or bsd;
                         # als "alpine", which will be reset to "linux" after dependency check
 
-    [ -d /root/z80pack/cpmsim ] && docker=yes # Running in Z80Pack-for-Docker
-  
-    zver=master         # Default if nothing is specified on the command line.
+    zver=1.36           # Default if nothing is specified on the command line.
       case $1 in        # split into separate cases just for ease of reading
         1.10|1.11|1.12|1.13|1.14|1.15|1.16|1.17|1.18|1.19) zver=$1 ;;
         1.20|1.21|1.22|1.23|1.24|1.25|1.26|1.27|1.28|1.29) zver=$1 ;;
@@ -73,11 +83,12 @@
       esac
 
     zroot=$(pwd)        # where to put z80pack-x.yy/
-    zloc=$zroot/z80pack-$zver
 
   # Set name and location of Z80Pack install dir. Default location is current directory, and name is
   # "z80pack-$zver". If this script is being used in the Z80Pack-for-Docker, then $zloc is set for that.
-    [ "$docker"="yes" ] && zloc="/root/z80pack"
+    zloc=$zroot/z80pack-$zver
+    [ -d /root/z80pack ] && zloc="/root/z80pack"
+    echo "zloc $zloc"
 
     sharedlib=/usr/lib  # a shared library directory on your system; libfrontpanel.so goes here
 
@@ -150,22 +161,30 @@ function params {
 #                                                                                         #
 # ======================================================================================= #
 
-function update-script {
-  [ -f $1 ] && {
-    sed -i 's|bin/sh|bin/bash|g' $1
-    sed -i 's|\.cpm|\.dsk|g' $1
-    sed -i 's|\./format|mkdskimg|g' $1
-    # altairsim's "boot" launch script (are there others?) breaks this code.
-    simcmd=$(grep ^./ $1) 
-    sed -i 's|\./|#\./|' $1
+function update-script {                  
+  # Updates launch scripts for use with zpack_os. Also, some of the launch scripts
+  # are outdated and need updating for current versions of z80pack. This function can
+  # be passed a list of script names to update.
 
-    # zpack_os mods
-    echo "" >> $1
-    echo "#---- ZPack_OS mods" >> $1
-    echo "simcmd='$simcmd'" >> $1
-    echo "[ -f ../zpack_os ] && . ../zpack_os" >> $1 # Warning: assumes zpack_os is in the parent dir to cpmsim/
-    echo "\$simcmd" >> $1
-  }
+  while (( "$#" )); do                    # repeat until none left
+    echo "Updating script: $(pwd)/$1"
+    [ -f $1 ] && {
+      sed -i 's|bin/sh|bin/bash|g' $1
+      sed -i 's|\.cpm|\.dsk|g' $1
+      sed -i 's|\./format|mkdskimg|g' $1
+      # altairsim's "boot", cromemcosim's "boot1", "boot2", "boot3" launch scripts (are there others?) breaks this code.
+      simcmd=$(grep ^./ $1) 
+      sed -i 's|\./|#\./|' $1
+
+      # zpack_os mods
+      echo "" >> $1
+      echo "#---- ZPack_OS mods" >> $1
+      echo "simcmd='$simcmd'" >> $1
+      echo "[ -f ../zpack_os ] && . ../zpack_os" >> $1 # Warning: assumes zpack_os is in the parent dir to cpmsim/
+      echo "\$simcmd" >> $1
+    }
+    shift                                 # on to next
+   done
 }
 
 function inst () { 
@@ -189,7 +208,7 @@ function inst () {
   echo " Command(s) available: "
   
   # Update script files:
-  for s in $2 $3 $4 $5 $6; do update-script $s; done
+  shift; update-script $*
 
   echo "+-------------------------------+"
   echo " "
@@ -892,6 +911,9 @@ function build()     {
   [ -d civetweb/         ] && { cd civetweb      ;                                                           make; cp libcivetweb.a $zloc             ; make clean; mv $zloc/libcivetweb.a .; }
   [ -d disks/            ] && { [ -d disks/ ] && { mkdir -p backups ; [ -d disks/library/ ] && cp -r disks/library/* backups/ || cp -r disks/* backups/; mv backups/ disks/; }; }
 
+  # update scripts
+  cd $zloc/$component/; shift; update-script $*
+  
   # Cleanup
   # [ -d $zloc/$component/ ] && cd $zloc/$component/
   # rm -r src*
@@ -900,12 +922,12 @@ function build()     {
   cd $zloc
 }
 
-function cromemcosim { build cromemcosim; cromemco_additional; }
-function imsaisim    { [ -d webfrontend ] && build webfrontend; build imsaisim; imsai_additional; }
-function cpmsim      { build cpmsim; cpmsim_additional; }
-function mosteksim   { build mosteksim; }
-function cpmtools    { getcpmtools; build cpmtools; }
-function altairsim   { build frontpanel; build altairsim; altair_additional; } # frontpanel is required for altairsim
+function cromemcosim {                                          build cromemcosim boot1 boot2 boot3 cds2368 cdos2588 cpm2 cromix                ; cromemco_additional; }
+function    imsaisim { [ -d webfrontend ] && build webfrontend; build imsaisim boot bootvio cpm22 imdos202 imdos205r0 imsai-cpm13 ucsd um-cpm13 ; imsai_additional   ; }
+function      cpmsim {                                          build cpmsim cpm13 cpm14 cpm1975 cpm2 cpm3 cpm3-8080 fuzix mpm                  ; cpmsim_additional  ; }
+function   mosteksim {                                          build mosteksim                                                                                      ; }
+function    cpmtools { getcpmtools                            ; build cpmtools                                                                                       ; }
+function   altairsim { build frontpanel                       ; build altairsim cpm13 cpm14 cpm22 ucsd                                          ; altair_additional  ; }
 
 function mainstuff {
   check_dependencies
